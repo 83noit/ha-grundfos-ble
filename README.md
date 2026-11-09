@@ -4,7 +4,7 @@
 [![HACS](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hacs.yml/badge.svg)](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hacs.yml)
 [![Hassfest](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hassfest.yml/badge.svg)](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hassfest.yml)
 [![Release](https://img.shields.io/github/v/release/83noit/ha-grundfos-ble?sort=semver)](https://github.com/83noit/ha-grundfos-ble/releases)
-[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/83noit/ha-grundfos-ble#install)
+[![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/default)
 [![License: MIT](https://img.shields.io/github/license/83noit/ha-grundfos-ble)](LICENSE)
 
 Reads a **Grundfos ALPHA2 GO** circulator pump over Bluetooth LE, through an ESPHome
@@ -36,11 +36,9 @@ This project is not affiliated with Grundfos.
 
 ## Install
 
-**Marketplace (Home Assistant 2026.11+):** Settings → Marketplace → *Add from link* →
-`https://github.com/83noit/ha-grundfos-ble` → type *Integration* → install. Adding a repository
-this way needs a GitHub connection, which Home Assistant asks for. If the integration does not
-appear under *Add integration* afterwards, restart Home Assistant. Until this repository is in
-the Marketplace catalog that is the way in; once listed, search for "Grundfos Bluetooth".
+**Marketplace (Home Assistant 2026.11+):** Settings → Marketplace → search for "Grundfos
+Bluetooth" → install. If the integration does not appear under *Add integration* afterwards,
+restart Home Assistant.
 
 **Manually:** copy `custom_components/grundfos_ble` into your `config/custom_components/`
 and restart Home Assistant.
