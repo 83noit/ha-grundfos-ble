@@ -7,7 +7,7 @@ import re
 from typing import Any
 
 from homeassistant.components import bluetooth
-from homeassistant.components.diagnostics import async_redact_data
+from homeassistant.components.diagnostics import REDACTED, async_redact_data
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 
@@ -22,7 +22,7 @@ def redact_address(address: str) -> str:
     """Keep the last two bytes of a Bluetooth address, enough to tell devices apart."""
     parts = address.split(":")
     if len(parts) != 6:
-        return "**REDACTED**"
+        return REDACTED
     return "**:**:**:**:" + ":".join(parts[4:])
 
 
@@ -31,6 +31,17 @@ def _scrub(text: str | None) -> str | None:
     if text is None:
         return None
     return _ADDRESS.sub(lambda match: redact_address(match.group(0)), text)
+
+
+def _scrub_error(text: str | None, entry: GrundfosConfigEntry) -> str | None:
+    """Redact addresses and the pump's name, which transport errors start with."""
+    scrubbed = _scrub(text)
+    if scrubbed is None:
+        return None
+    for name in (entry.title, entry.data.get(CONF_UNIT_NAME)):
+        if name:
+            scrubbed = scrubbed.replace(name, REDACTED)
+    return scrubbed
 
 
 def _plain(value: Any) -> Any:
@@ -91,7 +102,7 @@ async def async_get_config_entry_diagnostics(
             "pairing_failures": coordinator.pairing_failures,
             "no_reply_polls": coordinator.no_reply_polls,
             "reauth_raised": coordinator.reauth_raised,
-            "last_error": _scrub(coordinator.last_error),
+            "last_error": _scrub_error(coordinator.last_error, entry),
             "capabilities": sorted(coordinator.capabilities),
         },
         "data": _plain(coordinator.data),

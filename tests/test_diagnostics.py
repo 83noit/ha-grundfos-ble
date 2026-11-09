@@ -14,7 +14,7 @@ from custom_components.grundfos_ble.diagnostics import (
     redact_address,
 )
 
-from .conftest import PROXY_SOURCE, FakeProxyScanner
+from .conftest import PROXY_SOURCE, PUMP_NAME, FakeProxyScanner
 
 
 def test_redact_address() -> None:
@@ -50,3 +50,27 @@ async def test_diagnostics(
     assert result["data"]["measurements"]["power_w"] > 0
     assert result["last_frames"][0]["direction"] == "tx"
     assert "27 07 e7 f8 0a 03 5d 01 22" in result["last_frames"][0]["frame"]
+
+
+async def test_diagnostics_redact_the_pump_name_from_errors(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    proxy: FakeProxyScanner,
+    replay_transport_factory: Callable[..., Any],
+) -> None:
+    """Regression: the name is redacted in the entry but transport errors start with it."""
+    config_entry_basic.add_to_hass(hass)
+    with patch(
+        "custom_components.grundfos_ble.coordinator.BleTransport",
+        side_effect=replay_transport_factory,
+    ):
+        assert await hass.config_entries.async_setup(config_entry_basic.entry_id)
+        await hass.async_block_till_done()
+    config_entry_basic.runtime_data.last_error = (
+        f"RequestTimeout: {PUMP_NAME} (AA:BB:CC:DD:12:34): no reply"
+    )
+    result = await async_get_config_entry_diagnostics(hass, config_entry_basic)
+    assert result["polling"]["last_error"] == (
+        "RequestTimeout: **REDACTED** (**:**:**:**:12:34): no reply"
+    )
+    assert PUMP_NAME not in str(result)
