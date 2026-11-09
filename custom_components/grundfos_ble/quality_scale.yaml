@@ -1,0 +1,140 @@
+# Self-assessed against the Home Assistant Integration Quality Scale (54 rules, 2026-11).
+# hassfest does not validate this file for custom integrations; it follows the core schema so
+# it can be lifted into a core PR unchanged. "done" means implemented and tested here;
+# "exempt" quotes the rule's own exception.
+rules:
+  # Bronze
+  action-setup:
+    status: exempt
+    comment: The integration registers no custom actions.
+  appropriate-polling:
+    status: done
+    comment: >-
+      60 s by default (options flow 15-600 s); each poll is one short BLE connection, and polls
+      stop within about 40 s of the pump's advertisements ceasing.
+  brands:
+    status: todo
+    comment: >-
+      custom_components/grundfos_ble/brand/ ships the icon (served by HA from the integration directory); submission to
+      home-assistant/brands is pending.
+  common-modules: done
+  config-flow: done
+  config-flow-test-coverage: done
+  dependency-transparency:
+    status: done
+    comment: >-
+      grundfos-ble is MIT, public on GitHub, and published to PyPI by trusted publishing from
+      its CI.
+  docs-actions:
+    status: exempt
+    comment: No custom actions.
+  docs-conditions:
+    status: exempt
+    comment: No custom conditions.
+  docs-high-level-description:
+    status: done
+    comment: README (custom integration, no home-assistant.io page).
+  docs-installation-instructions:
+    status: done
+    comment: README.
+  docs-removal-instructions:
+    status: done
+    comment: README.
+  docs-triggers:
+    status: exempt
+    comment: No custom triggers.
+  entity-event-setup:
+    status: exempt
+    comment: Entities subscribe to nothing beyond the coordinator (handled by the base entity).
+  entity-unique-id: done
+  has-entity-name: done
+  runtime-data: done
+  test-before-configure:
+    status: done
+    comment: The pairing step connects, pairs and reads the identity before creating the entry.
+  test-before-setup:
+    status: done
+    comment: >-
+      The pump may be powered only while a thermostat calls, so setup continues with entities
+      unavailable and the coordinator polls once it advertises (the rule's temporary-unavailable path).
+  unique-config-entry: done
+
+  # Silver
+  action-exceptions:
+    status: exempt
+    comment: No custom actions and only read-only platforms.
+  config-entry-unloading: done
+  docs-configuration-parameters:
+    status: done
+    comment: README describes the poll-interval option.
+  docs-installation-parameters:
+    status: done
+    comment: README describes the pairing step (there are no typed parameters).
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow:
+    status: done
+    comment: Re-pairing is the authentication; the bond lives on one proxy and can be lost.
+  test-coverage: done
+
+  # Gold
+  devices: done
+  diagnostics: done
+  discovery: done
+  discovery-update-info:
+    status: exempt
+    comment: A Bluetooth address never changes; there is no network information to update.
+  docs-data-update:
+    status: done
+    comment: README.
+  docs-examples:
+    status: done
+    comment: README.
+  docs-known-limitations:
+    status: done
+    comment: README (bond tied to the proxy, GO app lock-out, proxy requirements, unconfirmed values).
+  docs-supported-devices:
+    status: done
+    comment: README.
+  docs-supported-functions:
+    status: done
+    comment: README.
+  docs-troubleshooting:
+    status: done
+    comment: README.
+  docs-use-cases:
+    status: done
+    comment: README.
+  dynamic-devices:
+    status: exempt
+    comment: One static device per config entry, tied to its lifecycle.
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  exception-translations:
+    status: exempt
+    comment: The integration raises no custom exceptions to the user; flow errors are translated.
+  icon-translations: done
+  reconfiguration-flow:
+    status: done
+    comment: Reconfigure re-runs pairing on demand (proxy moved or replaced).
+  repair-issues:
+    status: exempt
+    comment: >-
+      The one user-actionable problem, lost pairing, goes through the reauthentication flow,
+      which Home Assistant surfaces itself.
+  stale-devices:
+    status: exempt
+    comment: One static device per config entry, tied to its lifecycle.
+
+  # Platinum
+  async-dependency: done
+  inject-websession:
+    status: exempt
+    comment: Bluetooth only, no HTTP.
+  strict-typing:
+    status: done
+    comment: mypy --strict on the integration; grundfos-ble ships py.typed and is strictly typed.

@@ -1,0 +1,324 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Choose a Grundfos pump",
+        "description": "Pumps heard by a connectable Bluetooth proxy.",
+        "data": {
+          "address": "Pump"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Pair with {name}",
+        "description": "After you submit this form, press the Bluetooth button on the pump. The pump accepts pairing for only about three seconds after the press, so press it once the waiting screen appears, not before.\n\nAddress: {address}\nConnectable proxies hearing the pump: {connectable}\nPassive scanners hearing the pump (cannot connect): {passive}"
+      },
+      "pair_failed": {
+        "title": "Pairing did not succeed",
+        "description": "Submit to try again, then press the pump's Bluetooth button as soon as the waiting screen appears."
+      },
+      "reauth_confirm": {
+        "title": "Pair {name} again",
+        "description": "The pump no longer accepts the encrypted link from Home Assistant. This is expected when the proxy holding the pairing was replaced or wiped. Submit, then press the pump's Bluetooth button.\n\nConnectable proxies hearing the pump: {connectable}"
+      },
+      "reconfigure": {
+        "title": "Pair {name} again",
+        "description": "Pair the pump with the proxy that now hears it best. Submit, then press the pump's Bluetooth button.\n\nConnectable proxies hearing the pump: {connectable}"
+      }
+    },
+    "progress": {
+      "pair": "Press the Bluetooth button on {name} now. Waiting up to a minute for the pump to open its pairing window, then connecting."
+    },
+    "error": {
+      "no_connectable_proxy": "No Bluetooth proxy that can make connections hears this pump. An ESPHome proxy with active connections enabled is needed within a few metres of the pump; Shelly devices only listen.",
+      "button_timeout": "The pump did not report a button press within a minute.",
+      "window_missed": "The pump refused pairing: the connection through {source} took {seconds} s and arrived after the three-second window, or the button was pressed too early. Try again and press the button as soon as the waiting screen shows.",
+      "cannot_connect": "Could not connect through {source}: {reason}",
+      "no_longer_in_range": "The pump is not advertising right now. Make sure it has power (a thermostat may have switched it off).",
+      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet.",
+      "unknown": "Unexpected error. The Home Assistant log has the details."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "already_in_progress": "Configuration flow is already in progress",
+      "no_devices_found": "No devices found on the network",
+      "not_supported": "This Bluetooth device does not advertise like a Grundfos pump.",
+      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet. Please open an issue with these numbers.",
+      "reauth_successful": "Re-authentication was successful",
+      "reconfigure_successful": "Re-configuration was successful"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Polling",
+        "data": {
+          "scan_interval": "Seconds between readings"
+        },
+        "data_description": {
+          "scan_interval": "Each reading opens a short Bluetooth connection (under five seconds). While Home Assistant is connected the Grundfos GO app cannot connect."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "flow": {
+        "name": "Flow"
+      },
+      "head": {
+        "name": "Head"
+      },
+      "differential_pressure": {
+        "name": "Differential pressure"
+      },
+      "power": {
+        "name": "Power"
+      },
+      "speed": {
+        "name": "Speed"
+      },
+      "voltage": {
+        "name": "Voltage"
+      },
+      "dc_link_voltage": {
+        "name": "DC-link voltage"
+      },
+      "current": {
+        "name": "Current"
+      },
+      "shaft_power": {
+        "name": "Shaft power"
+      },
+      "electronics_temperature": {
+        "name": "Electronics temperature"
+      },
+      "media_temperature": {
+        "name": "Media temperature"
+      },
+      "pcb_temperature": {
+        "name": "PCB temperature"
+      },
+      "control_mode": {
+        "name": "Control mode",
+        "state": {
+          "constant_pressure": "Constant pressure",
+          "proportional_pressure": "Proportional pressure",
+          "constant_curve": "Constant curve",
+          "autoadapt": "AUTOADAPT",
+          "constant_temperature": "Constant temperature",
+          "closed_loop_sensor": "Closed-loop sensor",
+          "constant_flow": "Constant flow",
+          "constant_level": "Constant level",
+          "flowadapt": "FLOWADAPT",
+          "constant_differential_pressure": "Constant differential pressure",
+          "constant_differential_temperature": "Constant differential temperature",
+          "pp_autoadapt": "Proportional pressure AUTOADAPT",
+          "cp_autoadapt": "Constant pressure AUTOADAPT",
+          "autoadapt_combined": "AUTOADAPT combined",
+          "constant_dosing": "Constant dosing",
+          "pid": "PID",
+          "dhw_on_off": "DHW on/off",
+          "proportional_differential_pressure": "Proportional differential pressure",
+          "on_off": "On/off",
+          "constant_voltage": "Constant voltage",
+          "air_venting": "Air venting",
+          "none": "None",
+          "unrecognised": "Unrecognised"
+        }
+      },
+      "operation_mode": {
+        "name": "Operation mode",
+        "state": {
+          "auto": "Auto",
+          "stop": "Stop",
+          "min": "Minimum",
+          "max": "Maximum",
+          "user_defined": "User defined",
+          "forced_start": "Forced start",
+          "no_command": "No command",
+          "hand": "Hand",
+          "standby": "Standby",
+          "stop_without_delay": "Stop without delay",
+          "emergency_run": "Emergency run",
+          "unrecognised": "Unrecognised"
+        }
+      },
+      "setpoint": {
+        "name": "Setpoint"
+      },
+      "max_flow_limit": {
+        "name": "Maximum flow limit"
+      },
+      "min_flow_limit": {
+        "name": "Minimum flow limit"
+      },
+      "alarm": {
+        "name": "Alarm code",
+        "state": {
+          "none": "None",
+          "motor_blocked": "Blocked motor (E1)",
+          "undervoltage": "Undervoltage (E2)",
+          "overvoltage": "Overvoltage (E3)",
+          "internal_fault": "Internal fault (E3)",
+          "internal_fault_76": "Internal fault (E3)",
+          "memory_fault": "Memory fault (E3)",
+          "invalid_gsc_file": "Configuration file fault (E3)",
+          "dry_running": "Dry running (E4)",
+          "wrong_configuration": "Incorrect PWM configuration (E9)",
+          "forced_pumping_warning": "Forced pumping",
+          "forced_pumping": "Forced pumping",
+          "air_in_media": "Air in the water",
+          "leakage_current": "Leakage current",
+          "motor_phase_missing": "Motor phase missing",
+          "external_alarm": "External alarm",
+          "pump_communication": "Pump communication",
+          "service_interval": "Service interval",
+          "dc_link_protection": "DC-link protection",
+          "other": "Other",
+          "overvoltage_alt": "Overvoltage",
+          "undervoltage_transient": "Undervoltage transient",
+          "under_temperature": "Under temperature",
+          "motor_overload": "Motor overload",
+          "motor_overcurrent": "Motor overcurrent",
+          "motor_underload": "Motor underload",
+          "low_flow": "Low flow",
+          "no_flow": "No flow",
+          "over_temperature": "Over temperature",
+          "motor_over_temperature": "Motor over temperature",
+          "electronics_over_temperature": "Electronics over temperature",
+          "converter_over_temperature": "Converter over temperature",
+          "high_media_temperature": "High water temperature",
+          "hardware_shutdown": "Hardware shutdown",
+          "high_dc_link_voltage": "High DC-link voltage",
+          "low_dc_link_voltage": "Low DC-link voltage",
+          "persistence_breakdown": "Persistence breakdown",
+          "sensor_fault": "Sensor fault",
+          "feedback_sensor_fault": "Feedback sensor fault",
+          "speed_sensor_fault": "Speed sensor fault",
+          "flow_temperature_sensor_fault": "Flow temperature sensor fault",
+          "fallback_sensor_fault": "Fallback sensor fault",
+          "reference_input_fault": "Reference input fault",
+          "invalid_setpoint": "Invalid setpoint",
+          "rectifier_protection": "Rectifier protection",
+          "inverter_protection": "Inverter protection",
+          "frost_protection": "Frost protection",
+          "inrush_fault": "Inrush fault",
+          "clock_fault": "Clock fault",
+          "pressure_sensor_fault": "Pressure sensor fault",
+          "flow_sensor_fault": "Flow sensor fault",
+          "cavitation": "Cavitation",
+          "overpressure": "Overpressure",
+          "max_running_time": "Maximum running time",
+          "electronics_short_circuit": "Electronics short circuit",
+          "unrecognised": "Unrecognised code"
+        }
+      },
+      "warning": {
+        "name": "Warning code",
+        "state": {
+          "none": "None",
+          "motor_blocked": "Blocked motor (E1)",
+          "undervoltage": "Undervoltage (E2)",
+          "overvoltage": "Overvoltage (E3)",
+          "internal_fault": "Internal fault (E3)",
+          "internal_fault_76": "Internal fault (E3)",
+          "memory_fault": "Memory fault (E3)",
+          "invalid_gsc_file": "Configuration file fault (E3)",
+          "dry_running": "Dry running (E4)",
+          "wrong_configuration": "Incorrect PWM configuration (E9)",
+          "forced_pumping_warning": "Forced pumping",
+          "forced_pumping": "Forced pumping",
+          "air_in_media": "Air in the water",
+          "leakage_current": "Leakage current",
+          "motor_phase_missing": "Motor phase missing",
+          "external_alarm": "External alarm",
+          "pump_communication": "Pump communication",
+          "service_interval": "Service interval",
+          "dc_link_protection": "DC-link protection",
+          "other": "Other",
+          "overvoltage_alt": "Overvoltage",
+          "undervoltage_transient": "Undervoltage transient",
+          "under_temperature": "Under temperature",
+          "motor_overload": "Motor overload",
+          "motor_overcurrent": "Motor overcurrent",
+          "motor_underload": "Motor underload",
+          "low_flow": "Low flow",
+          "no_flow": "No flow",
+          "over_temperature": "Over temperature",
+          "motor_over_temperature": "Motor over temperature",
+          "electronics_over_temperature": "Electronics over temperature",
+          "converter_over_temperature": "Converter over temperature",
+          "high_media_temperature": "High water temperature",
+          "hardware_shutdown": "Hardware shutdown",
+          "high_dc_link_voltage": "High DC-link voltage",
+          "low_dc_link_voltage": "Low DC-link voltage",
+          "persistence_breakdown": "Persistence breakdown",
+          "sensor_fault": "Sensor fault",
+          "feedback_sensor_fault": "Feedback sensor fault",
+          "speed_sensor_fault": "Speed sensor fault",
+          "flow_temperature_sensor_fault": "Flow temperature sensor fault",
+          "fallback_sensor_fault": "Fallback sensor fault",
+          "reference_input_fault": "Reference input fault",
+          "invalid_setpoint": "Invalid setpoint",
+          "rectifier_protection": "Rectifier protection",
+          "inverter_protection": "Inverter protection",
+          "frost_protection": "Frost protection",
+          "inrush_fault": "Inrush fault",
+          "clock_fault": "Clock fault",
+          "pressure_sensor_fault": "Pressure sensor fault",
+          "flow_sensor_fault": "Flow sensor fault",
+          "cavitation": "Cavitation",
+          "overpressure": "Overpressure",
+          "max_running_time": "Maximum running time",
+          "electronics_short_circuit": "Electronics short circuit",
+          "unrecognised": "Unrecognised code"
+        }
+      },
+      "start_count": {
+        "name": "Start count"
+      },
+      "operating_time": {
+        "name": "Operating time since commissioning"
+      },
+      "starts_last_24h": {
+        "name": "Starts in the last 24 hours"
+      },
+      "energy": {
+        "name": "Energy"
+      },
+      "signal_strength": {
+        "name": "Signal strength"
+      },
+      "ambient_temperature": {
+        "name": "Ambient temperature"
+      },
+      "last_cycle_time": {
+        "name": "Current run time"
+      },
+      "running_time_24h": {
+        "name": "Running time in the last 24 hours"
+      },
+      "power_on_time": {
+        "name": "Powered time since commissioning"
+      },
+      "power_ups": {
+        "name": "Power-ups"
+      }
+    },
+    "binary_sensor": {
+      "connected": {
+        "name": "Connected"
+      },
+      "autonight": {
+        "name": "AutoNight"
+      },
+      "max_flow_limiter": {
+        "name": "Maximum flow limiter"
+      },
+      "min_flow_limiter": {
+        "name": "Minimum flow limiter"
+      }
+    }
+  }
+}

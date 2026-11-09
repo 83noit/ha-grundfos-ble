@@ -1,0 +1,74 @@
+{
+  "entity": {
+    "sensor": {
+      "head": {
+        "default": "mdi:arrow-expand-vertical"
+      },
+      "speed": {
+        "default": "mdi:rotate-right"
+      },
+      "control_mode": {
+        "default": "mdi:tune-variant"
+      },
+      "operation_mode": {
+        "default": "mdi:power-settings"
+      },
+      "setpoint": {
+        "default": "mdi:target"
+      },
+      "max_flow_limit": {
+        "default": "mdi:arrow-collapse-down"
+      },
+      "min_flow_limit": {
+        "default": "mdi:arrow-collapse-up"
+      },
+      "alarm": {
+        "default": "mdi:alert-circle",
+        "state": {
+          "none": "mdi:check-circle-outline"
+        }
+      },
+      "warning": {
+        "default": "mdi:alert",
+        "state": {
+          "none": "mdi:check-circle-outline"
+        }
+      },
+      "start_count": {
+        "default": "mdi:counter"
+      },
+      "operating_time": {
+        "default": "mdi:timer-outline"
+      },
+      "starts_last_24h": {
+        "default": "mdi:counter"
+      },
+      "last_cycle_time": {
+        "default": "mdi:timer-play-outline"
+      },
+      "running_time_24h": {
+        "default": "mdi:timer-outline"
+      },
+      "power_on_time": {
+        "default": "mdi:power-plug-outline"
+      },
+      "power_ups": {
+        "default": "mdi:counter"
+      }
+    },
+    "binary_sensor": {
+      "autonight": {
+        "default": "mdi:weather-night",
+        "state": {
+          "off": "mdi:weather-night-partly-cloudy"
+        }
+      },
+      "max_flow_limiter": {
+        "default": "mdi:speedometer-slow"
+      },
+      "min_flow_limiter": {
+        "default": "mdi:speedometer-medium"
+      }
+    }
+  }
+}

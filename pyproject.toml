@@ -1,0 +1,71 @@
+# Development tooling only; the integration itself is installed by copying
+# custom_components/grundfos_ble into a Home Assistant config directory (Marketplace does this).
+[project]
+name = "ha-grundfos-ble"
+version = "0.1.0"
+description = "Grundfos Bluetooth: Home Assistant integration for Grundfos ALPHA2 GO pumps (dev tooling)"
+requires-python = ">=3.14.2"
+dependencies = []
+
+[dependency-groups]
+dev = [
+    "pytest-homeassistant-custom-component>=0.13.375",
+    "grundfos-ble==0.1.0",
+    "pytest-cov>=7",
+    # Requirements of the core bluetooth/usb components the tests load
+    "aiousbwatcher", "serialx", "bluetooth-adapters", "bluetooth-auto-recovery",
+    "bluetooth-data-tools", "dbus-fast", "habluetooth",
+    "ruff>=0.14",
+    "mypy>=1.19",
+]
+
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = [
+    "E", "W", "F", "I", "B", "UP", "N", "SIM", "RUF", "ASYNC", "PT", "T20", "D",
+    "ANN", "ARG", "C4", "DTZ", "ERA", "ICN", "ISC", "PIE", "RET", "RSE", "SLF", "TID", "TRY",
+]
+ignore = [
+    "D203", "D213", "TRY003", "ISC001", "D105", "D107", "RUF001", "RUF002", "RUF003", "ASYNC109",
+    "ANN401",  # Any is legitimate in diagnostics and HA callbacks
+    "ARG001", "ARG002", "ARG004",  # Home Assistant callback signatures fix the arguments
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ANN", "SLF001", "ARG001", "PT011"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.isort]
+known-first-party = ["custom_components.grundfos_ble", "grundfos_ble"]
+force-sort-within-sections = true
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+warn_unreachable = true
+show_error_codes = true
+files = ["custom_components/grundfos_ble"]
+# custom_components has no __init__.py; without this mypy would name the package
+# "grundfos_ble" and shadow the library of the same name.
+explicit_package_bases = true
+# Home Assistant ships type hints; voluptuous does too. Nothing else is imported.
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-q --strict-markers"
+
+[tool.coverage.run]
+source = ["custom_components/grundfos_ble"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
