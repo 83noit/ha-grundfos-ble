@@ -1,5 +1,12 @@
 # Grundfos Bluetooth for Home Assistant
 
+[![CI](https://github.com/83noit/ha-grundfos-ble/actions/workflows/ci.yml/badge.svg)](https://github.com/83noit/ha-grundfos-ble/actions/workflows/ci.yml)
+[![HACS](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hacs.yml/badge.svg)](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hacs.yml)
+[![Hassfest](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hassfest.yml/badge.svg)](https://github.com/83noit/ha-grundfos-ble/actions/workflows/hassfest.yml)
+[![Release](https://img.shields.io/github/v/release/83noit/ha-grundfos-ble?sort=semver)](https://github.com/83noit/ha-grundfos-ble/releases)
+[![HACS Custom](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/83noit/ha-grundfos-ble#install)
+[![License: MIT](https://img.shields.io/github/license/83noit/ha-grundfos-ble)](LICENSE)
+
 Reads a **Grundfos ALPHA2 GO** circulator pump over Bluetooth LE, through an ESPHome
 Bluetooth proxy, using the pump's native GENIbus protocol. Flow, head, power, speed, voltage,
 temperatures, control mode, setpoint, alarms and warnings become Home Assistant sensors. The
