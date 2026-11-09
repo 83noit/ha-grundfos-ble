@@ -8,6 +8,8 @@ from typing import Any
 from unittest.mock import patch
 
 from bluetooth_data_tools import monotonic_time_coarse
+from habluetooth import get_manager
+from homeassistant.components import bluetooth
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntryState
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import CoreState, HomeAssistant
@@ -534,6 +536,71 @@ async def test_scanner_expiry_also_clears_the_readings(
     coordinator._async_handle_unavailable(coordinator._last_service_info)
     assert coordinator.data.measurements is None
     assert not coordinator.advertising
+
+
+async def test_recovers_when_the_stack_sends_no_event_after_an_outage(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    proxy: FakeProxyScanner,
+    replay_transport_factory: Callable[..., Any],
+) -> None:
+    """Regression: after a long power-off the entities stayed unavailable with adverts flowing.
+
+    When a non-connectable scanner hears the pump first, the connectable advert that follows
+    is stored without a callback, and the unchanging payload filters every later one.
+    """
+    listener = FakeProxyScanner("AA:BB:CC:DD:EE:02", "listener", None, False)
+    unregister = bluetooth.async_register_scanner(hass, listener)
+    with patch(COORDINATOR_TRANSPORT, side_effect=replay_transport_factory):
+        coordinator = await _loaded(hass, config_entry_basic, proxy)
+        polls = coordinator.poll_count
+
+        # The pump loses power for long enough that Home Assistant forgets it.
+        manager = get_manager()
+        info = manager._connectable_history.pop(PUMP_ADDRESS)
+        manager._all_history.pop(PUMP_ADDRESS)
+        coordinator._async_handle_unavailable(info)
+        assert not coordinator.available
+
+        # Power returns: the listener is heard first, then the proxy at a weaker signal.
+        listener.inject(rssi=-50)
+        proxy.inject(rssi=-70)
+        await hass.async_block_till_done()
+        assert not coordinator.available  # no event reached the coordinator
+        assert bluetooth.async_last_service_info(hass, PUMP_ADDRESS, connectable=True) is not None
+
+        coordinator._last_poll = monotonic_time_coarse() - 61
+        async_fire_time_changed(hass, utcnow() + timedelta(seconds=6))
+        await hass.async_block_till_done()
+        assert coordinator.available
+
+        # The poll debouncer is still cooling down from the poll in _loaded.
+        async_fire_time_changed(hass, utcnow() + timedelta(seconds=30))
+        await hass.async_block_till_done(wait_background_tasks=True)
+    unregister()
+    assert coordinator.poll_count == polls + 1
+    assert coordinator.connected
+    state = hass.states.get("sensor.test_pump_flow")
+    assert state is not None
+    assert state.state != STATE_UNAVAILABLE
+
+
+async def test_stays_unavailable_while_only_a_non_connectable_scanner_hears_the_pump(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    replay_transport_factory: Callable[..., Any],
+) -> None:
+    listener = FakeProxyScanner("AA:BB:CC:DD:EE:02", "listener", None, False)
+    unregister = bluetooth.async_register_scanner(hass, listener)
+    await _setup(hass, config_entry_basic, replay_transport_factory)
+    coordinator = config_entry_basic.runtime_data
+    listener.inject()
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, utcnow() + timedelta(seconds=6))
+    await hass.async_block_till_done()
+    unregister()
+    assert not coordinator.available
+    assert coordinator.poll_count == 0
 
 
 async def test_unexpected_exception_counts_as_a_failure(

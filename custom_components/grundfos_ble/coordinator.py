@@ -201,10 +201,17 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             self.advertising = False
             self._async_forget_data()
             self.async_update_listeners()
-        if not fresh or not self.available:
+        if not fresh:
+            return
+        info = bluetooth.async_last_service_info(self.hass, self.address, connectable=True)
+        if not self.available:
+            # After an outage a connectable advert can be stored without a callback, when a
+            # non-connectable scanner was heard first, and the unchanging payload filters the
+            # rest. The connectable history is emptied by the outage, so an entry here is new.
+            if info is not None:
+                self._async_handle_bluetooth_event(info, BluetoothChange.ADVERTISEMENT)
             return
         self.advertising = True
-        info = bluetooth.async_last_service_info(self.hass, self.address, connectable=True)
         if info is None:
             return
         age = None if self._last_poll is None else now - self._last_poll
