@@ -4,7 +4,7 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.2] - 2026-11-11
 
 ### Fixed
 
@@ -31,5 +31,6 @@ All notable changes to this project are documented here. The format follows
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
+[0.1.2]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.2
 [0.1.1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.1
 [0.1.0]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.0
