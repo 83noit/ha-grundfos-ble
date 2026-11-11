@@ -6,6 +6,7 @@ The ``pair`` progress step waits for that flag, connects at once through whichev
 Home Assistant picks (the strongest; the caller cannot choose), pairs, and uses the same
 connection to read the identity and probe the optional objects. The same step serves
 reauthentication (the bond was lost) and reconfiguration (re-pair on demand after moving a proxy).
+It first makes local BlueZ adapters forget any bond they hold, so they pair rather than reconnect.
 """
 
 from __future__ import annotations
@@ -46,6 +47,7 @@ from grundfos_ble import (
     RequestTimeout,
     parse_advertisement,
     profile_for,
+    remove_bluez_bond,
 )
 
 from .const import (
@@ -286,6 +288,12 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_wait_and_pair(self, address: str) -> PairOutcome:
         """Wait for the button, then connect, pair, read the identity and probe."""
+        # A new bond is wanted. A local BlueZ adapter would reconnect with keys the pump may
+        # have dropped and never pair, so it forgets them first; proxies are left alone.
+        for scanner_device in bluetooth.async_scanner_devices_by_address(
+            self.hass, address, connectable=True
+        ):
+            await remove_bluez_bond(scanner_device.ble_device)
         try:
             await async_process_advertisements(
                 self.hass,

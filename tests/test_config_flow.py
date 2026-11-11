@@ -82,6 +82,20 @@ async def test_bluetooth_discovery_pairs_and_creates_entry(
     mock_pairing["transport"].disconnect.assert_awaited_once()
 
 
+async def test_pairing_clears_local_bluez_bonds_first(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+) -> None:
+    proxy.inject()
+    result = await _start_bluetooth_flow(hass)
+    with patch(
+        "custom_components.grundfos_ble.config_flow.remove_bluez_bond", AsyncMock()
+    ) as remove:
+        result = await _run_pairing(hass, result["flow_id"])
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    (call,) = remove.await_args_list
+    assert call.args[0].address == PUMP_ADDRESS
+
+
 async def test_duplicate_is_refused(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:
     config_entry.add_to_hass(hass)
     result = await hass.config_entries.flow.async_init(

@@ -153,9 +153,10 @@ actions:
 ## Known limitations
 
 - Read-only in this version.
-- Only ESPHome Bluetooth proxies have been tested. A local adapter may connect, but BlueZ and
-  WinRT pairing failures are not recognised, so a refused pairing there shows as a failed
-  connection and raises no repair.
+- Only ESPHome Bluetooth proxies have been tested. A local Linux (BlueZ) adapter should pair
+  since 0.1.2 but has not been tested here. Pairing through one (setup, repair or *Reconfigure*)
+  first deletes the bond the host holds, so a *Reconfigure* abandoned before the button press
+  leaves the pump unpaired until it is paired again.
 - One pump family (ALPHA2 GO). Others are refused with their identity numbers in the message.
 - The bond lives on the proxy that paired (see above).
 - The Grundfos GO app and Home Assistant cannot be connected at the same time.
