@@ -69,7 +69,6 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FAILURES_BEFORE_UNAVAILABLE,
-    MAX_NO_REPLY_POLLS,
     MAX_PAIRING_FAILURES,
     OPT_SCAN_INTERVAL,
     POLL_TIMEOUT,
@@ -131,7 +130,6 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self.poll_count = 0
         self.consecutive_failures = 0
         self.pairing_failures = 0
-        self.no_reply_polls = 0
         self.reauth_raised = False
         self.advertising = False
         self.last_error: str | None = None
@@ -308,13 +306,13 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         except PairingRequired as err:
             self._note_refusal(err)
             return self.data
-        except (RequestTimeout, ConnectionLost) as err:
-            if retry:
+        except (GrundfosError, BleakError, TimeoutError) as err:
+            if retry and isinstance(err, (RequestTimeout, ConnectionLost)):
                 self.logger.debug("%s: retrying after %s", self.entry.title, err)
                 return None
-            self._note_silence(err, replied=transport.reply_seen)
-            return self.data
-        except (GrundfosError, BleakError, TimeoutError) as err:
+            # Only a refusal at the encryption step counts against the bond. A link that
+            # comes up and then goes silent or drops is the radio, and must not ask the
+            # user to re-pair: a later poll on the same bond usually works again.
             self._reset_pairing_evidence()
             self._record_failure(err)
             return self.data
@@ -405,10 +403,8 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
 
     def _reset_pairing_evidence(self) -> None:
         self.pairing_failures = 0
-        self.no_reply_polls = 0
 
     def _note_refusal(self, err: PairingRequired) -> None:
-        self.no_reply_polls = 0
         if self._bonded_proxy_hears_pump():
             self.pairing_failures += 1
         else:
@@ -417,13 +413,6 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self._record_failure(err)
         if self.pairing_failures >= MAX_PAIRING_FAILURES:
             self._raise_reauth(str(err))
-
-    def _note_silence(self, err: GrundfosConnectionError, *, replied: bool) -> None:
-        self.pairing_failures = 0
-        self.no_reply_polls = 0 if replied else self.no_reply_polls + 1
-        self._record_failure(err)
-        if self.no_reply_polls >= MAX_NO_REPLY_POLLS and self._bonded_proxy_hears_pump():
-            self._raise_reauth("the pump connects but no longer answers")
 
     def _raise_reauth(self, reason: str) -> None:
         if self.reauth_raised:

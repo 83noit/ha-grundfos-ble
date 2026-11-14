@@ -26,11 +26,10 @@ from custom_components.grundfos_ble.const import (
     ADVERT_STALE_SECONDS,
     DOMAIN,
     FAILURES_BEFORE_UNAVAILABLE,
-    MAX_NO_REPLY_POLLS,
     MAX_PAIRING_FAILURES,
     OPT_SCAN_INTERVAL,
 )
-from grundfos_ble import GrundfosConnectionError, PairingRequired, RequestTimeout
+from grundfos_ble import ConnectionLost, GrundfosConnectionError, PairingRequired, RequestTimeout
 from grundfos_ble.testing import ReplayTransport
 
 from .conftest import (
@@ -370,7 +369,15 @@ def _failing(error: Exception) -> Callable[..., Any]:
 
 
 class _SilentTransport(ReplayTransport):
-    """Connects, encrypts, then never answers: what a lost bond may look like."""
+    """Connects, encrypts, then never answers."""
+
+
+class _DroppingTransport(ReplayTransport):
+    """Connects, encrypts, then loses the link on the first request."""
+
+    async def request(self, telegram: Any, *, timeout: float | None = None) -> Any:
+        del telegram, timeout
+        raise ConnectionLost("disconnected")
 
 
 async def _loaded(hass: HomeAssistant, entry: MockConfigEntry, proxy: FakeProxyScanner) -> Any:
@@ -457,16 +464,26 @@ async def test_other_failures_reset_the_refusal_count(
     assert _reauth_flows(hass) == []
 
 
-async def test_repeated_silent_links_suggest_re_pairing(
-    hass: HomeAssistant, config_entry_basic: MockConfigEntry, proxy: FakeProxyScanner
+@pytest.mark.parametrize("transport", [_SilentTransport, _DroppingTransport])
+async def test_silent_or_dropped_links_never_ask_for_re_pairing(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    proxy: FakeProxyScanner,
+    transport: type[ReplayTransport],
 ) -> None:
-    with patch(COORDINATOR_TRANSPORT, side_effect=lambda *_a, **_k: _SilentTransport([])):
+    """Regression (ha-grundfos-ble#3): a flaky local adapter raised the repair over and over.
+
+    The bond was fine, since the next good poll worked without a button press.
+    """
+    with patch(COORDINATOR_TRANSPORT, side_effect=lambda *_a, **_k: transport([])):
         coordinator = await _loaded(hass, config_entry_basic, proxy)
-        for _ in range(MAX_NO_REPLY_POLLS - 1):
+        for _ in range(MAX_PAIRING_FAILURES + 2):
             await coordinator._async_poll()
         await hass.async_block_till_done()
-    assert coordinator.no_reply_polls == MAX_NO_REPLY_POLLS
-    assert len(_reauth_flows(hass)) == 1
+    assert coordinator.consecutive_failures == MAX_PAIRING_FAILURES + 3
+    assert coordinator.pairing_failures == 0
+    assert not coordinator.reauth_raised
+    assert _reauth_flows(hass) == []
 
 
 async def test_a_timeout_is_retried_once_on_a_fresh_connection(
@@ -619,7 +636,7 @@ async def test_ordinary_connection_failure_counts_as_a_failure(
     with patch(COORDINATOR_TRANSPORT, side_effect=_failing(GrundfosConnectionError("no slot"))):
         coordinator = await _loaded(hass, config_entry_basic, proxy)
     assert coordinator.consecutive_failures == 1
-    assert coordinator.no_reply_polls == 0
+    assert coordinator.pairing_failures == 0
 
 
 async def test_two_pumps_run_independently(

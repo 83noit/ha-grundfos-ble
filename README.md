@@ -153,8 +153,9 @@ actions:
 ## Known limitations
 
 - Read-only in this version.
-- Only ESPHome Bluetooth proxies have been tested. A local Linux (BlueZ) adapter should pair
-  since 0.1.2 but has not been tested here. Pairing through one (setup, repair or *Reconfigure*)
+- Only ESPHome Bluetooth proxies have been tested. A local Linux (BlueZ) adapter pairs since
+  0.1.2 but has not been tested here, and a built-in adapter may drop polls, which show as
+  gaps in the history. An ESPHome proxy near the pump is the supported route. Pairing through one (setup, repair or *Reconfigure*)
   first deletes the bond the host holds, so a *Reconfigure* abandoned before the button press
   leaves the pump unpaired until it is paired again.
 - One pump family (ALPHA2 GO). Others are refused with their identity numbers in the message.

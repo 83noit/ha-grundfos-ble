@@ -28,11 +28,6 @@ PAIR_CONNECT_TIMEOUT: Final = 5.0
 
 MAX_PAIRING_FAILURES: Final = 3
 """Consecutive polls refused at the encryption step before a re-pairing flow is raised."""
-MAX_NO_REPLY_POLLS: Final = 3
-"""Consecutive polls that connect but never get an answer before re-pairing is suggested.
-
-A lost bond may look like this; the exact behaviour has not been measured.
-"""
 REAUTH_BACKOFF: Final = 600
 """Seconds between polls while re-pairing is outstanding, so a recovery is still noticed."""
 ADVERT_STALE_SECONDS: Final = 40.0

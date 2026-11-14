@@ -100,7 +100,6 @@ async def async_get_config_entry_diagnostics(
             "poll_count": coordinator.poll_count,
             "consecutive_failures": coordinator.consecutive_failures,
             "pairing_failures": coordinator.pairing_failures,
-            "no_reply_polls": coordinator.no_reply_polls,
             "reauth_raised": coordinator.reauth_raised,
             "last_error": _scrub_error(coordinator.last_error, entry),
             "capabilities": sorted(coordinator.capabilities),
