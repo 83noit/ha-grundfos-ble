@@ -82,6 +82,7 @@ async def async_get_config_entry_diagnostics(
             "last_rssi": coordinator.rssi,
             "last_source": _scrub(coordinator.source),
             "scanners_hearing_the_pump": scanners,
+            "reachability": _scrub(coordinator.reachability()),
             "advertisement": None
             if advertisement is None
             else {

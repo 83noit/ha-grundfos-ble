@@ -176,6 +176,7 @@ async def test_repeated_failures_make_entities_unavailable_and_log_once(
     assert coordinator.consecutive_failures >= FAILURES_BEFORE_UNAVAILABLE
     assert not coordinator.poll_ok
     assert caplog.text.count("cannot read the pump") == 1
+    assert "Bluetooth: " in caplog.text  # Home Assistant's account of the paths to the pump
 
 
 async def test_lost_pairing_starts_reauth(

@@ -44,6 +44,7 @@ async def test_diagnostics(
     assert PROXY_SOURCE not in str(result)
     assert "AA:BB:CC:DD:12:34" not in str(result)
     assert result["bluetooth"]["scanners_hearing_the_pump"][0]["connectable"] is True
+    assert "connectable=True" in result["bluetooth"]["reachability"]
     assert result["bluetooth"]["advertisement"]["family"] == 52
     assert result["polling"]["poll_count"] == 1
     assert result["polling"]["capabilities"] == []

@@ -14,6 +14,7 @@ from bluetooth_data_tools import monotonic_time_coarse
 from homeassistant.components import bluetooth
 from homeassistant.components.bluetooth import (
     BluetoothChange,
+    BluetoothReachabilityIntent,
     BluetoothScanningMode,
     BluetoothServiceInfoBleak,
 )
@@ -170,6 +171,12 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
     def has_live_data(self) -> bool:
         """True when recent polls worked and the readings belong to this power-up."""
         return self.poll_ok and self.data.measurements is not None
+
+    def reachability(self) -> str:
+        """Home Assistant's account of the paths to the pump, for logs and diagnostics."""
+        return bluetooth.async_address_reachability_diagnostics(
+            self.hass, self.address.upper(), BluetoothReachabilityIntent.CONNECTION
+        )
 
     def has(self, capability: str) -> bool:
         """Return True when the pairing-time probe found this optional object on the pump."""
@@ -444,9 +451,11 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             and not self._unavailable_logged
         ):
             self.logger.info(
-                "%s: cannot read the pump (%s); it will show as unavailable until a poll succeeds",
+                "%s: cannot read the pump (%s); it will show as unavailable until a poll "
+                "succeeds. Bluetooth: %s",
                 self.entry.title,
                 self.last_error,
+                self.reachability(),
             )
             self._unavailable_logged = True
         else:

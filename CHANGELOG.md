@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Diagnostics, and the log line when the pump becomes unreadable, include Home Assistant's own
+  account of the Bluetooth paths to the pump: which adapters and proxies hear it, whether they
+  can connect, their connection failures and free slots.
+
 ### Fixed
 
 - The repair "Pair again" opened over and over on a local Bluetooth adapter whose link kept
