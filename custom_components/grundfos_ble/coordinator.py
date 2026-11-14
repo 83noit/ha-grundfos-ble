@@ -73,6 +73,7 @@ from .const import (
     OPT_SCAN_INTERVAL,
     POLL_TIMEOUT,
     REAUTH_BACKOFF,
+    RETRY_PAUSE,
 )
 
 type GrundfosConfigEntry = ConfigEntry[GrundfosCoordinator]
@@ -281,6 +282,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             async with asyncio.timeout(POLL_TIMEOUT):
                 data = await self._async_attempt(service_info, retry=True)
                 if data is None:
+                    await asyncio.sleep(RETRY_PAUSE)
                     data = await self._async_attempt(service_info, retry=False)
                 return data or self.data
         except Exception as err:

@@ -13,6 +13,8 @@ All notable changes to this project are documented here. The format follows
   or lose the link, now only count as failed polls. Only the pump refusing the encrypted link
   raises the repair. Since an open repair slows polling to every 10 minutes, this also shortens
   the gaps in the history ([#3](https://github.com/83noit/ha-grundfos-ble/issues/3)).
+- A poll that retries on a fresh link now waits a moment first, so the Bluetooth stack can
+  settle after the failed one.
 
 ## [0.1.2] - 2026-11-11
 

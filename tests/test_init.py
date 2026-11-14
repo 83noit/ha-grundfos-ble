@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
@@ -28,6 +29,7 @@ from custom_components.grundfos_ble.const import (
     FAILURES_BEFORE_UNAVAILABLE,
     MAX_PAIRING_FAILURES,
     OPT_SCAN_INTERVAL,
+    RETRY_PAUSE,
 )
 from grundfos_ble import ConnectionLost, GrundfosConnectionError, PairingRequired, RequestTimeout
 from grundfos_ble.testing import ReplayTransport
@@ -493,8 +495,19 @@ async def test_a_timeout_is_retried_once_on_a_fresh_connection(
     replay_transport_factory: Callable[..., Any],
 ) -> None:
     transports = iter([_SilentTransport([]), replay_transport_factory()])
-    with patch(COORDINATOR_TRANSPORT, side_effect=lambda *_a, **_k: next(transports)):
+    pauses: list[float] = []
+    real_sleep = asyncio.sleep
+
+    def sleep(delay: float, *args: Any, **kwargs: Any) -> Any:
+        pauses.append(delay)
+        return real_sleep(delay, *args, **kwargs)
+
+    with (
+        patch(COORDINATOR_TRANSPORT, side_effect=lambda *_a, **_k: next(transports)),
+        patch("asyncio.sleep", side_effect=sleep),
+    ):
         coordinator = await _loaded(hass, config_entry_basic, proxy)
+    assert RETRY_PAUSE in pauses  # the stack settles before the fresh link
     assert coordinator.poll_count == 1
     assert coordinator.consecutive_failures == 0
     assert coordinator.data.measurements is not None

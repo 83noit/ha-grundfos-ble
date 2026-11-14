@@ -32,6 +32,8 @@ REAUTH_BACKOFF: Final = 600
 """Seconds between polls while re-pairing is outstanding, so a recovery is still noticed."""
 ADVERT_STALE_SECONDS: Final = 40.0
 """With no advertisement for this long the pump is treated as gone (it advertises every ~8 s)."""
+RETRY_PAUSE: Final = 0.25
+"""Seconds to let the Bluetooth stack settle before a poll retries on a fresh link."""
 POLL_TIMEOUT: Final = 60.0
 """Upper bound on one poll, connection attempts included."""
 FAILURES_BEFORE_UNAVAILABLE: Final = 2
