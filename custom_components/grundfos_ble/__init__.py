@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 
-from homeassistant.const import Platform
+from bleak_retry_connector import close_stale_connections_by_address
+from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant
 
 from .coordinator import GrundfosConfigEntry, GrundfosCoordinator
@@ -21,6 +22,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: GrundfosConfigEntry) -> 
     require it to be reachable: the coordinator polls when it advertises and the entities
     stay unavailable until then (quality scale: test-before-setup, temporary unavailability).
     """
+    # A link left open by an earlier run (a restart mid-poll on a local adapter) would hold the
+    # pump's one client slot and fail every poll; yalexs_ble guards against the same.
+    await close_stale_connections_by_address(entry.data[CONF_ADDRESS])
     coordinator = GrundfosCoordinator(hass, _LOGGER, entry)
     entry.runtime_data = coordinator
     entry.async_on_unload(coordinator.async_start())

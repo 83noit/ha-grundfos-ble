@@ -21,6 +21,8 @@ All notable changes to this project are documented here. The format follows
   the gaps in the history ([#3](https://github.com/83noit/ha-grundfos-ble/issues/3)).
 - A poll that retries on a fresh link now waits a moment first, so the Bluetooth stack can
   settle after the failed one.
+- Setup closes a connection to the pump left open by an earlier run on a local adapter. The
+  pump serves one client at a time, so such a link would fail every poll.
 
 ## [0.1.2] - 2026-11-11
 

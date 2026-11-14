@@ -48,6 +48,13 @@ def bluetooth_stack(enable_bluetooth: None) -> None:
     """Start the Bluetooth integration with a mocked local adapter."""
 
 
+@pytest.fixture(autouse=True)
+def close_stale_connections() -> Generator[AsyncMock]:
+    """Keep setup away from the host's BlueZ."""
+    with patch("custom_components.grundfos_ble.close_stale_connections_by_address") as close_stale:
+        yield close_stale
+
+
 class FakeProxyScanner(BaseHaRemoteScanner):
     """A connectable remote scanner standing in for an ESPHome Bluetooth proxy."""
 

@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable
 from datetime import timedelta
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from bluetooth_data_tools import monotonic_time_coarse
 from habluetooth import get_manager
@@ -72,6 +72,16 @@ async def test_setup_without_pump_in_range_leaves_entities_unavailable(
     assert device.manufacturer == "Grundfos"
     assert device.model == "ALPHA2 GO XX-75"
     assert device.serial_number == "12345678"
+
+
+async def test_setup_closes_a_link_left_open_by_an_earlier_run(
+    hass: HomeAssistant,
+    config_entry: MockConfigEntry,
+    replay_transport_factory: Callable[..., Any],
+    close_stale_connections: AsyncMock,
+) -> None:
+    await _setup(hass, config_entry, replay_transport_factory)
+    close_stale_connections.assert_awaited_once_with(PUMP_ADDRESS)
 
 
 async def test_advert_triggers_poll_and_populates_sensors(
