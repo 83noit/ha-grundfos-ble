@@ -149,15 +149,19 @@ actions:
   optional objects the pump answered. Attach it to an issue.
 - Enable debug logging for `custom_components.grundfos_ble` and `grundfos_ble` for frame-level
   detail.
+- Before opening an issue, see [what to include](https://github.com/83noit/ha-grundfos-ble/blob/main/SUPPORT.md#reporting-a-problem).
 
 ## Known limitations
 
+- Alpha, built in my spare time for my own use case: see
+  [SUPPORT.md](https://github.com/83noit/ha-grundfos-ble/blob/main/SUPPORT.md) for what to expect.
 - Read-only in this version.
 - Only ESPHome Bluetooth proxies have been tested. A local Linux (BlueZ) adapter pairs since
   0.1.2 but has not been tested here, and a built-in adapter may drop polls, which show as
-  gaps in the history. An ESPHome proxy near the pump is the supported route. Pairing through one (setup, repair or *Reconfigure*)
-  first deletes the bond the host holds, so a *Reconfigure* abandoned before the button press
-  leaves the pump unpaired until it is paired again.
+  gaps in the history. An ESPHome proxy near the pump is the supported route. Pairing through a
+  local adapter (setup, repair or *Reconfigure*) first deletes the bond the host holds, so a
+  *Reconfigure* abandoned before the button press leaves the pump unpaired until it is paired
+  again.
 - One pump family (ALPHA2 GO). Others are refused with their identity numbers in the message.
 - The bond lives on the proxy that paired (see above).
 - The Grundfos GO app and Home Assistant cannot be connected at the same time.

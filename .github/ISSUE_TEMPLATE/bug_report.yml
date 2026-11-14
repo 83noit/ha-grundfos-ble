@@ -1,0 +1,56 @@
+name: Bug report
+description: Something does not work as described.
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for reporting. This is an alpha, spare-time project: please read
+        [SUPPORT.md](https://github.com/83noit/ha-grundfos-ble/blob/main/SUPPORT.md) first, and
+        add to an existing issue if one already covers your setup.
+  - type: input
+    id: integration-version
+    attributes:
+      label: Integration version
+      placeholder: "0.1.3"
+    validations:
+      required: true
+  - type: input
+    id: ha-version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.11.1"
+    validations:
+      required: true
+  - type: dropdown
+    id: connection
+    attributes:
+      label: How Home Assistant reaches the pump
+      options:
+        - ESPHome Bluetooth proxy
+        - Local Bluetooth adapter (built-in or USB)
+        - Both
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: hardware
+    attributes:
+      label: Pump model and Bluetooth hardware
+      placeholder: "ALPHA2 GO XX-75, ESP32-S3 proxy"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and debug log
+      description: |-
+        Drag the files here.
+
+        **Diagnostics:** in Home Assistant, go to Settings → Devices & services → Grundfos Bluetooth, open your pump's device page, then choose ⋮ (top right) → Download diagnostics. Bluetooth addresses, the serial number and the pump's name should be redacted, but please check the file before attaching it.
+
+        **Debug log** (for connection problems): on the same Grundfos Bluetooth page, choose ⋮ → Enable debug logging. Wait for a few failed polls, then choose Disable debug logging; Home Assistant then downloads the log file. Attach it here.
