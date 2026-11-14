@@ -524,6 +524,25 @@ async def test_a_timeout_is_retried_once_on_a_fresh_connection(
     assert coordinator.data.measurements is not None
 
 
+async def test_each_connection_attempt_asks_for_the_best_path(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    proxy: FakeProxyScanner,
+    replay_transport_factory: Callable[..., Any],
+) -> None:
+    calls: list[dict[str, Any]] = []
+
+    def factory(*args: Any, **kwargs: Any) -> Any:
+        calls.append(kwargs)
+        return replay_transport_factory(*args, **kwargs)
+
+    with patch(COORDINATOR_TRANSPORT, side_effect=factory):
+        await _loaded(hass, config_entry_basic, proxy)
+    device = calls[0]["device_callback"]()
+    assert device is not None
+    assert device.address == PUMP_ADDRESS
+
+
 async def test_polling_waits_for_pairing_and_for_a_pressed_button(
     hass: HomeAssistant,
     config_entry_basic: MockConfigEntry,

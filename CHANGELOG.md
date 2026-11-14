@@ -23,6 +23,10 @@ All notable changes to this project are documented here. The format follows
   settle after the failed one.
 - Setup closes a connection to the pump left open by an earlier run on a local adapter. The
   pump serves one client at a time, so such a link would fail every poll.
+- A link that stalls for a moment is now waited out instead of dropped: each reply may take up
+  to 8 s, above the link supervision timeout (grundfos-ble 0.1.2).
+- Each connection attempt within a poll now goes through whichever adapter or proxy hears the
+  pump best at that moment (grundfos-ble 0.1.2).
 
 ## [0.1.2] - 2026-11-11
 

@@ -307,7 +307,14 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             bluetooth.async_ble_device_from_address(self.hass, self.address, connectable=True)
             or service_info.device
         )
-        transport = BleTransport(device, name=self.entry.title, max_attempts=2)
+        transport = BleTransport(
+            device,
+            name=self.entry.title,
+            max_attempts=2,
+            device_callback=lambda: bluetooth.async_ble_device_from_address(
+                self.hass, self.address, connectable=True
+            ),
+        )
         pump = GrundfosPump(transport)
         try:
             await transport.connect()
