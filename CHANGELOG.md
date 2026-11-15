@@ -4,10 +4,17 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.1.4] - 2026-11-15
 
 ### Fixed
 
+- On a local Bluetooth adapter, most polls connected and then got no answer
+  ([#1](https://github.com/83noit/ha-grundfos-ble/issues/1)). Each connection there now waits
+  for BlueZ to finish setting up the link and lets it settle before the first request, the two
+  likeliest causes. A request left unanswered now logs whether nothing arrived or only pieces of
+  a reply. Proxies are unchanged (grundfos-ble 0.1.3).
+- A reply may take up to 10 s instead of 8 s, above the 8 s link supervision timeout
+  (grundfos-ble 0.1.3).
 - A poll may take up to 75 s instead of 60 s, so that its retry on a fresh link is not cut short
   now that replies may take up to 10 s (grundfos-ble 0.1.3).
 
@@ -62,7 +69,7 @@ All notable changes to this project are documented here. The format follows
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
-[Unreleased]: https://github.com/83noit/ha-grundfos-ble/compare/v0.1.3...HEAD
+[0.1.4]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.4
 [0.1.3]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.3
 [0.1.2]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.2
 [0.1.1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.1
