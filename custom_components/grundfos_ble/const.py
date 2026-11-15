@@ -34,8 +34,12 @@ ADVERT_STALE_SECONDS: Final = 40.0
 """With no advertisement for this long the pump is treated as gone (it advertises every ~8 s)."""
 RETRY_PAUSE: Final = 0.25
 """Seconds to let the Bluetooth stack settle before a poll retries on a fresh link."""
-POLL_TIMEOUT: Final = 60.0
-"""Upper bound on one poll, connection attempts included."""
+POLL_TIMEOUT: Final = 75.0
+"""Upper bound on one poll, connection attempts included.
+
+Above the worst case of two links, each with a retried connect (2 x 10 s), the settle pause and
+one 10 s request timeout (~62 s), so the retry on a fresh link is not cut short.
+"""
 FAILURES_BEFORE_UNAVAILABLE: Final = 2
 """Consecutive failed polls before entities report unavailable (one miss is noise)."""
 
