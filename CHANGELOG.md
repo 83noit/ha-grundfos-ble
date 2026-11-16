@@ -4,6 +4,14 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Needs grundfos-ble 0.3.0, which takes its Bluetooth link (pairing, recording which proxy each
+  attempt used, the BlueZ pairing agent, one request at a time) from the new shared package
+  [ble-bond](https://github.com/83noit/ble-bond). Behaviour is unchanged.
+
 ## [0.2.0] - 2026-11-16
 
 Needs grundfos-ble 0.2.0. Everything in 0.2.0b1 and 0.2.0b2 below, tested on a real ALPHA2 GO, plus:
