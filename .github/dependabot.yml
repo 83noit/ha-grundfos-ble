@@ -1,0 +1,22 @@
+# Weekly, grouped updates for the pinned actions and the uv lockfile. The cooldown lets a new
+# release age a week before it is proposed, so a compromised release has time to be pulled.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: uv
+    directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      python:
+        patterns: ["*"]
