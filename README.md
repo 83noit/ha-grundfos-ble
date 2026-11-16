@@ -169,8 +169,10 @@ actions:
 - **Values look odd.** Download diagnostics (device page → ⋮ → Download diagnostics): it
   includes the raw frames, the proxies that hear the pump with signal strength, and which
   optional objects the pump answered. Attach it to an issue.
-- Enable debug logging for `custom_components.grundfos_ble` and `grundfos_ble` for frame-level
-  detail. This integration shortens Bluetooth addresses in its log lines to their last two bytes
+- Enable debug logging (integration page → ⋮ → Enable debug logging) for each reading's proxy,
+  timings and link events; it covers `custom_components.grundfos_ble`, `grundfos_ble` and
+  `ble_bond`. For every frame sent and received, also set `ble_bond.frames` to debug
+  (Developer tools → Actions → `logger.set_level`). This integration shortens Bluetooth addresses in its log lines to their last two bytes
   and shows proxies by their shortened address, not their name. Home Assistant's own Bluetooth
   log lines (`habluetooth`, `bleak`) still carry full addresses and proxy names, so check a log
   before pasting it into an issue.

@@ -4,6 +4,16 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [0.2.1] - 2026-11-16
+
+Everything in 0.2.1b1 below, checked on the real pump, plus:
+
+### Changed
+
+- "Enable debug logging" on the integration page now also covers `ble_bond`, which logs each
+  connection's link events. Every frame sent and received is on `ble_bond.frames`, off unless
+  you set it to debug. Needs ble-bond 1.1.0, pinned so an existing install updates.
+
 ## [0.2.1b1] - 2026-11-16
 
 Beta, for a hardware check of the new link package before 0.2.1.
@@ -168,6 +178,7 @@ Beta, for testing on real hardware before 0.2.0. Needs grundfos-ble 0.2.0.
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
+[0.2.1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.1
 [0.2.1b1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.1b1
 [0.2.0]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.0
 [0.2.0b2]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.0b2

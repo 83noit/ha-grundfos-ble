@@ -11,6 +11,7 @@ dependencies = []
 dev = [
     "pytest-homeassistant>=2026.11.1",
     "grundfos-ble==0.3.0",
+    "ble-bond==1.1.0",
     "pytest-cov>=7",
     # Requirements of the core bluetooth/usb components the tests load
     "aiousbwatcher", "serialx", "bluetooth-adapters", "bluetooth-auto-recovery",

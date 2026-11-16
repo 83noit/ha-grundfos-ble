@@ -515,16 +515,16 @@ wheels = [
 
 [[package]]
 name = "ble-bond"
-version = "1.0.0"
+version = "1.1.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "bleak" },
     { name = "bleak-retry-connector" },
     { name = "dbus-fast", marker = "sys_platform == 'linux'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e7/3c/1bcf2e6d3b339796f7498992ce871193e0c42450e69f1f94eb633d15ae5c/ble_bond-1.0.0.tar.gz", hash = "sha256:00b836e7fbdb7971ff6029fb81ebf15230e63ada4c7b9c665e405c3f4e98b7b0", size = 25017, upload-time = "2026-11-16T10:31:12.833Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/6c/17/a9ef89e3d2f57ab972ac82c979c94aef85eae3ce2880926995d65797dfdd/ble_bond-1.1.0.tar.gz", hash = "sha256:6b98714ffa511a541ac1ab351039e4d60501856759d0f8a2acbb211bef5a557f", size = 25857, upload-time = "2026-11-16T10:57:47.098Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/28/fa/61fd5e34d5a982ae05e7802026a4c4618c487bff8ce458658925fa66e615/ble_bond-1.0.0-py3-none-any.whl", hash = "sha256:f8bf3d7b09077d4cc88c7e547e0f9a4049787f9cd1f9484c2140e109b69d6591", size = 20787, upload-time = "2026-11-16T10:31:11.371Z" },
+    { url = "https://files.pythonhosted.org/packages/4f/2c/f8ee567d69ca58c19ee0a4a894c6f9ca7a8fa08481721e135a1fd2092605/ble_bond-1.1.0-py3-none-any.whl", hash = "sha256:6eba6e004e0353ac1742a18fddbb9a86f2bef6ac274f57fa15db7c518eb9c835", size = 21089, upload-time = "2026-11-16T10:57:45.748Z" },
 ]
 
 [[package]]
@@ -1235,6 +1235,7 @@ source = { virtual = "." }
 dev = [
     { name = "aiohasupervisor" },
     { name = "aiousbwatcher" },
+    { name = "ble-bond" },
     { name = "bluetooth-adapters" },
     { name = "bluetooth-auto-recovery" },
     { name = "bluetooth-data-tools" },
@@ -1254,6 +1255,7 @@ dev = [
 dev = [
     { name = "aiohasupervisor" },
     { name = "aiousbwatcher" },
+    { name = "ble-bond", specifier = "==1.1.0" },
     { name = "bluetooth-adapters" },
     { name = "bluetooth-auto-recovery" },
     { name = "bluetooth-data-tools" },
