@@ -10,6 +10,7 @@ from homeassistant.components import bluetooth
 from homeassistant.components.diagnostics import REDACTED, async_redact_data
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 
 from .const import CONF_PAIRED_SOURCE, CONF_SERIAL_NUMBER, CONF_UNIT_NAME
 from .coordinator import GrundfosConfigEntry
@@ -33,15 +34,37 @@ def _scrub(text: str | None) -> str | None:
     return _ADDRESS.sub(lambda match: redact_address(match.group(0)), text)
 
 
-def _scrub_error(text: str | None, entry: GrundfosConfigEntry) -> str | None:
-    """Redact addresses and the pump's name, which transport errors start with."""
-    scrubbed = _scrub(text)
-    if scrubbed is None:
+def _scrub_names(text: str | None, hass: HomeAssistant, entry: GrundfosConfigEntry) -> str | None:
+    """Redact addresses, the pump's name and every adapter's or proxy's user-chosen name.
+
+    Transport errors start with the pump's name, and Home Assistant's reachability text names
+    each scanner; a name is replaced by the scanner's redacted address.
+    """
+    if text is None:
         return None
-    for name in (entry.title, entry.data.get(CONF_UNIT_NAME)):
-        if name:
-            scrubbed = scrubbed.replace(name, REDACTED)
-    return scrubbed
+    # Home Assistant names a proxy "<name> (<source>)"; either form may appear.
+    names: list[tuple[str, str]] = []
+    for scanner in bluetooth.async_current_scanners(hass):
+        replacement = f"scanner {redact_address(scanner.source)}"
+        full = str(scanner.name or "")
+        bare = full.removesuffix(f" ({scanner.source})")
+        names += [(name, replacement) for name in (full, bare) if name]
+    for name, replacement in sorted(names, key=lambda pair: -len(pair[0])):
+        text = text.replace(name, replacement)
+    for pump_name in (entry.title, entry.data.get(CONF_UNIT_NAME)):
+        if pump_name:
+            text = text.replace(str(pump_name), REDACTED)
+    return _scrub(text)
+
+
+def _firmware(hass: HomeAssistant, source: str) -> dict[str, str | None]:
+    """Return the proxy's model and firmware version from its device entry, if known."""
+    device = dr.async_get(hass).async_get_device(
+        connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(source))}
+    )
+    if device is None:
+        return {"model": None, "sw_version": None}
+    return {"model": device.model, "sw_version": device.sw_version}
 
 
 def _plain(value: Any) -> Any:
@@ -71,6 +94,8 @@ async def async_get_config_entry_diagnostics(
             "source": redact_address(device.scanner.source),
             "connectable": device.scanner.connectable,
             "rssi": device.advertisement.rssi,
+            # ESPHome 2026.10 (ESP-IDF 5.5.6) proxies forget a pairing after one session.
+            **_firmware(hass, device.scanner.source),
         }
         for device in bluetooth.async_scanner_devices_by_address(hass, address, connectable=False)
     ]
@@ -82,7 +107,7 @@ async def async_get_config_entry_diagnostics(
             "last_rssi": coordinator.rssi,
             "last_source": _scrub(coordinator.source),
             "scanners_hearing_the_pump": scanners,
-            "reachability": _scrub(coordinator.reachability()),
+            "reachability": _scrub_names(coordinator.reachability(), hass, entry),
             "advertisement": None
             if advertisement is None
             else {
@@ -102,8 +127,10 @@ async def async_get_config_entry_diagnostics(
             "consecutive_failures": coordinator.consecutive_failures,
             "pairing_failures": coordinator.pairing_failures,
             "reauth_raised": coordinator.reauth_raised,
-            "last_error": _scrub_error(coordinator.last_error, entry),
+            "last_error": _scrub_names(coordinator.last_error, hass, entry),
             "capabilities": sorted(coordinator.capabilities),
+            "read_last_poll": sorted(coordinator.data.read),
+            "forgetful_proxy": coordinator.forgetful_proxy,
         },
         "data": _plain(coordinator.data),
         "last_frames": [{"direction": d, "frame": f} for d, f in coordinator.last_frames],

@@ -13,7 +13,7 @@ from homeassistant.components.bluetooth import BluetoothServiceInfoBleak
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.grundfos_ble.const import (
     CONF_BLE_SOFTWARE_VERSION,
@@ -25,6 +25,7 @@ from custom_components.grundfos_ble.const import (
     CONF_UNIT_NAME,
     DOMAIN,
 )
+from grundfos_ble import ProbeResult
 from grundfos_ble.testing import FIXTURES as LIB_FIXTURES
 from grundfos_ble.testing import ReplayTransport, load_fixture
 
@@ -213,13 +214,17 @@ def mock_pairing() -> Generator[dict[str, Any]]:
     identity.software_version = "92975974V01.05.00.00888"
     identity.ble_software_version = "93127901V06.00.03.00001"
     identity.unit_name = PUMP_NAME
-    probe = MagicMock()
-    probe.supported = frozenset({"alarms", "warnings", "operation"})
-    probe.errors = {"statistics": "ObjectError: object reply status 4"}
+    probe = ProbeResult(
+        supported=frozenset({"alarms", "warnings", "operation"}),
+        frames={},
+        errors={"statistics": "ObjectError: object reply status 4"},
+        denied=frozenset({"statistics"}),
+    )
 
     transport = MagicMock()
     transport.connect = AsyncMock()
     transport.disconnect = AsyncMock()
+    transport.last_source = PROXY_SOURCE
     pump = MagicMock()
     pump.read_identity = AsyncMock(return_value=identity)
     pump.probe_capabilities = AsyncMock(return_value=probe)

@@ -43,7 +43,7 @@ from .const import (
     CAP_WARNINGS,
 )
 from .coordinator import GrundfosConfigEntry, GrundfosCoordinator
-from .entity import GrundfosEntity
+from .entity import GrundfosEntity, supported
 
 PARALLEL_UPDATES = 1
 
@@ -173,15 +173,15 @@ SENSORS: tuple[GrundfosSensorDescription, ...] = (
         value_fn=_m("current_a"),
     ),
     GrundfosSensorDescription(
-        key="shaft_power",
-        translation_key="shaft_power",
+        key="dc_power",
+        translation_key="dc_power",
         device_class=SensorDeviceClass.POWER,
         native_unit_of_measurement=UnitOfPower.WATT,
         state_class=SensorStateClass.MEASUREMENT,
         entity_category=EntityCategory.DIAGNOSTIC,
         entity_registry_enabled_default=False,
         suggested_display_precision=1,
-        value_fn=_m("shaft_power_w"),
+        value_fn=_m("dc_power_w"),
     ),
     GrundfosSensorDescription(
         key="electronics_temperature",
@@ -410,8 +410,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     async_add_entities(
         GrundfosSensor(coordinator, description)
-        for description in SENSORS
-        if all(coordinator.has(capability) for capability in description.requires)
+        for description in supported(hass, "sensor", coordinator, SENSORS)
     )
 
 

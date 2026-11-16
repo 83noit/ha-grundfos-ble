@@ -18,7 +18,9 @@ rules:
       custom_components/grundfos_ble/brand/ ships the icon (served by HA from the integration directory); submission to
       home-assistant/brands is pending.
   common-modules: done
-  config-flow: done
+  config-flow:
+    status: done
+    comment: Every step's field has a data_description.
   config-flow-test-coverage: done
   dependency-transparency:
     status: done
@@ -63,14 +65,20 @@ rules:
   action-exceptions:
     status: exempt
     comment: No custom actions and only read-only platforms.
-  config-entry-unloading: done
+  config-entry-unloading:
+    status: done
+    comment: Unloading cancels a running poll and waits for it, so no poll outlives the entry.
   docs-configuration-parameters:
     status: done
     comment: README describes the poll-interval option.
   docs-installation-parameters:
     status: done
     comment: README describes the pairing step (there are no typed parameters).
-  entity-unavailable: done
+  entity-unavailable:
+    status: done
+    comment: >-
+      Entities go unavailable when the pump stops advertising, after three failed polls, and,
+      for optional objects, whenever the last poll could not read that object.
   integration-owner: done
   log-when-unavailable: done
   parallel-updates: done
@@ -81,7 +89,11 @@ rules:
 
   # Gold
   devices: done
-  diagnostics: done
+  diagnostics:
+    status: done
+    comment: >-
+      Addresses, the pump's name and every adapter's or proxy's name are redacted, and a test
+      checks that none appears anywhere in the output.
   discovery: done
   discovery-update-info:
     status: exempt
@@ -122,10 +134,11 @@ rules:
     status: done
     comment: Reconfigure re-runs pairing on demand (proxy moved or replaced).
   repair-issues:
-    status: exempt
+    status: done
     comment: >-
-      The one user-actionable problem, lost pairing, goes through the reauthentication flow,
-      which Home Assistant surfaces itself.
+      Lost pairing goes through the reauthentication flow. Non-fixable issues cover a proxy
+      that forgets its pairing after one session, a proxy that cannot pair, and an hour of
+      failed polls while the pump is heard; each closes after the next good poll.
   stale-devices:
     status: exempt
     comment: One static device per config entry, tied to its lifecycle.

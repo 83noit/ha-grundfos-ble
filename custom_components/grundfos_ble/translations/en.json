@@ -4,9 +4,12 @@
     "step": {
       "user": {
         "title": "Choose a Grundfos pump",
-        "description": "Pumps heard by a connectable Bluetooth proxy.",
+        "description": "Pumps heard by a connectable Bluetooth proxy. Pairing works best with one connectable proxy close to the pump: the pairing belongs to the proxy that made it.",
         "data": {
           "address": "Pump"
+        },
+        "data_description": {
+          "address": "Grundfos pumps that a Bluetooth proxy able to make connections hears right now. A pump of a model this integration does not support yet is reported with its family and type numbers instead."
         }
       },
       "bluetooth_confirm": {
@@ -56,7 +59,7 @@
           "scan_interval": "Seconds between readings"
         },
         "data_description": {
-          "scan_interval": "Each reading opens a short Bluetooth connection (under five seconds). While Home Assistant is connected the Grundfos GO app cannot connect."
+          "scan_interval": "Each reading opens a short Bluetooth connection, usually a few seconds long. While Home Assistant is connected the Grundfos GO app cannot connect."
         }
       }
     }
@@ -87,8 +90,8 @@
       "current": {
         "name": "Current"
       },
-      "shaft_power": {
-        "name": "Shaft power"
+      "dc_power": {
+        "name": "DC power"
       },
       "electronics_temperature": {
         "name": "Electronics temperature"
@@ -319,6 +322,20 @@
       "min_flow_limiter": {
         "name": "Minimum flow limiter"
       }
+    }
+  },
+  "issues": {
+    "proxy_forgets_bond": {
+      "title": "{proxy} forgets the pairing with {name}",
+      "description": "The pump was paired through {proxy} and read once, and then refused that proxy within half an hour. ESPHome proxies built with ESP-IDF 5.5.6 (ESPHome 2026.10) forget a pairing after one connection, so pairing again would only repeat this.\n\nBuild the proxy with ESP-IDF 5.5.5 (ESPHome 2026.9) or a release that fixes it, or reboot it, and then pair the pump again from the integration's Reconfigure menu. Until then Home Assistant stops asking to re-pair."
+    },
+    "proxy_cannot_pair": {
+      "title": "{proxy} cannot pair with {name}",
+      "description": "The ESPHome firmware on {proxy} has no pairing support, and the pump answers only an encrypted (paired) connection. Update ESPHome on that proxy. Pressing the pump's button cannot help."
+    },
+    "unreachable": {
+      "title": "{name} has not answered for an hour",
+      "description": "The pump is advertising and a connectable proxy hears it, but every reading for an hour has failed (last error: {error}).\n\nLikely causes:\n- The Grundfos GO app is connected to the pump; close it.\n- The Bluetooth proxy needs a restart.\n- The pump no longer accepts the pairing; pair it again from the integration's Reconfigure menu.\n\nThis issue closes by itself after the next good reading."
     }
   }
 }

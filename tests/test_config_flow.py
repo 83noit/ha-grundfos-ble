@@ -10,7 +10,7 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.grundfos_ble.const import (
     CONF_CAPABILITIES,
@@ -20,7 +20,7 @@ from custom_components.grundfos_ble.const import (
     DOMAIN,
     OPT_SCAN_INTERVAL,
 )
-from grundfos_ble import GrundfosConnectionError, PairingRequired, RequestTimeout
+from grundfos_ble import ConnectionLost, GrundfosConnectionError, PairingRequired, RequestTimeout
 
 from .conftest import (
     PROXY_SOURCE,
@@ -37,14 +37,17 @@ from .conftest import (
 async def _start_bluetooth_flow(hass: HomeAssistant) -> dict[str, Any]:
     """Use the flow the Bluetooth integration started from the advert, or start one."""
     await hass.async_block_till_done()
-    started = [f for f in hass.config_entries.flow.async_progress() if f["handler"] == DOMAIN]
-    if started:
-        result = await hass.config_entries.flow.async_configure(started[0]["flow_id"])
-    else:
-        result = await hass.config_entries.flow.async_init(
-            DOMAIN, context={"source": config_entries.SOURCE_BLUETOOTH}, data=service_info()
-        )
-    assert result["type"] is FlowResultType.FORM
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_BLUETOOTH}, data=service_info()
+    )
+    if result["type"] is FlowResultType.ABORT and result["reason"] == "already_in_progress":
+        # The Bluetooth integration's own discovery flow got there first (it may start late).
+        await hass.async_block_till_done()
+        (started,) = [
+            f for f in hass.config_entries.flow.async_progress() if f["handler"] == DOMAIN
+        ]
+        result = await hass.config_entries.flow.async_configure(started["flow_id"])
+    assert result["type"] is FlowResultType.FORM, result
     assert result["step_id"] == "bluetooth_confirm"
     return result
 
@@ -82,9 +85,10 @@ async def test_bluetooth_discovery_pairs_and_creates_entry(
     mock_pairing["transport"].disconnect.assert_awaited_once()
 
 
-async def test_pairing_clears_local_bluez_bonds_first(
+async def test_a_working_bond_is_never_removed(
     hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
 ) -> None:
+    """An adapter's bond is kept unless the pump refuses it inside the button window (C4)."""
     proxy.inject()
     result = await _start_bluetooth_flow(hass)
     with patch(
@@ -92,8 +96,39 @@ async def test_pairing_clears_local_bluez_bonds_first(
     ) as remove:
         result = await _run_pairing(hass, result["flow_id"])
     assert result["type"] is FlowResultType.CREATE_ENTRY
+    remove.assert_not_awaited()
+
+
+async def test_a_stale_local_bond_is_removed_inside_the_window_and_pairing_retried(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+) -> None:
+    proxy.inject()
+    result = await _start_bluetooth_flow(hass)
+    proxy.inject(service_data=SERVICE_DATA_BUTTON)  # the window is open
+    mock_pairing["transport"].connect.side_effect = [PairingRequired("refused"), None]
+    with patch(
+        "custom_components.grundfos_ble.config_flow.remove_bluez_bond",
+        AsyncMock(return_value=True),
+    ) as remove:
+        result = await _run_pairing(hass, result["flow_id"])
+    assert result["type"] is FlowResultType.CREATE_ENTRY
     (call,) = remove.await_args_list
     assert call.args[0].address == PUMP_ADDRESS
+    assert mock_pairing["transport"].connect.await_count == 2
+
+
+async def test_no_bond_is_removed_once_the_window_has_closed(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+) -> None:
+    proxy.inject()
+    result = await _start_bluetooth_flow(hass)
+    mock_pairing["transport"].connect.side_effect = PairingRequired("refused")
+    with patch(
+        "custom_components.grundfos_ble.config_flow.remove_bluez_bond", AsyncMock()
+    ) as remove:
+        result = await _run_pairing(hass, result["flow_id"])
+    assert result["errors"] == {"base": "window_missed"}
+    remove.assert_not_awaited()
 
 
 async def test_duplicate_is_refused(hass: HomeAssistant, config_entry: MockConfigEntry) -> None:
@@ -288,7 +323,8 @@ async def test_reauth_flow(
     result = await _run_pairing(hass, result["flow_id"])
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reauth_successful"
-    assert config_entry.data[CONF_CAPABILITIES] == ["alarms", "operation", "warnings"]
+    # Kept from before (autonight got no answer this time), merged with what answered (D3).
+    assert config_entry.data[CONF_CAPABILITIES] == ["alarms", "autonight", "operation", "warnings"]
 
 
 async def test_reconfigure_flow(
@@ -398,22 +434,37 @@ async def test_unexpected_error_reports_and_recovers(
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
 
-@pytest.mark.parametrize(
-    ("reply_seen", "error"), [(False, "window_missed"), (True, "cannot_connect")]
-)
-async def test_link_lost_during_pairing_read(
-    hass: HomeAssistant,
-    proxy: FakeProxyScanner,
-    mock_pairing: dict[str, Any],
-    reply_seen: bool,
-    error: str,
+async def test_silence_after_pairing_is_not_a_missed_window(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
 ) -> None:
+    """Once the link is encrypted, silence is the pump, not the button (D4)."""
     proxy.inject()
-    mock_pairing["transport"].reply_seen = reply_seen
     mock_pairing["pump"].read_identity = AsyncMock(side_effect=RequestTimeout("silent"))
     result = await _start_bluetooth_flow(hass)
     result = await _run_pairing(hass, result["flow_id"])
-    assert result["errors"] == {"base": error}
+    assert result["errors"] == {"base": "cannot_connect"}
+    assert mock_pairing["transport"].connect.await_count == 2  # one more try on a fresh link
+
+
+async def test_silence_after_pairing_recovers_on_a_fresh_link(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+) -> None:
+    proxy.inject()
+    identity = mock_pairing["identity"]
+    mock_pairing["pump"].read_identity = AsyncMock(side_effect=[RequestTimeout("silent"), identity])
+    result = await _start_bluetooth_flow(hass)
+    result = await _run_pairing(hass, result["flow_id"])
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_a_lost_link_before_encryption_is_a_missed_window(
+    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+) -> None:
+    proxy.inject()
+    mock_pairing["transport"].connect.side_effect = ConnectionLost("dropped")
+    result = await _start_bluetooth_flow(hass)
+    result = await _run_pairing(hass, result["flow_id"])
+    assert result["errors"] == {"base": "window_missed"}
 
 
 async def test_unsupported_identity_recovers_on_retry(

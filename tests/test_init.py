@@ -18,7 +18,7 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.util.dt import utcnow
 import pytest
-from pytest_homeassistant_custom_component.common import (
+from pytest_homeassistant.common import (
     MockConfigEntry,
     async_fire_time_changed,
 )
@@ -36,6 +36,7 @@ from grundfos_ble.testing import ReplayTransport
 
 from .conftest import (
     ENTRY_DATA,
+    PROXY_SOURCE,
     PUMP_ADDRESS,
     PUMP_NAME,
     SERVICE_DATA_BUTTON,
@@ -102,7 +103,8 @@ async def test_advert_triggers_poll_and_populates_sensors(
 
     coordinator = config_entry_basic.runtime_data
     assert coordinator.poll_count == 1
-    assert coordinator.last_poll_successful
+    assert coordinator.consecutive_failures == 0
+    assert coordinator.data.polled_at is not None
     flow = hass.states.get("sensor.test_pump_flow")
     assert flow is not None
     assert float(flow.state) == pytest.approx(0.995, abs=0.005)
@@ -156,6 +158,8 @@ async def test_partial_read_keeps_measurements(
 
 
 class _FailingTransport(ReplayTransport):
+    last_source: str | None = PROXY_SOURCE
+
     def __init__(self, error: Exception) -> None:
         super().__init__([])
         self._error = error
@@ -388,8 +392,8 @@ class _SilentTransport(ReplayTransport):
 class _DroppingTransport(ReplayTransport):
     """Connects, encrypts, then loses the link on the first request."""
 
-    async def request(self, telegram: Any, *, timeout: float | None = None) -> Any:
-        del telegram, timeout
+    async def request(self, telegram: Any, **_kwargs: Any) -> Any:
+        del telegram
         raise ConnectionLost("disconnected")
 
 

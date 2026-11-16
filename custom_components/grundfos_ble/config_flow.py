@@ -6,7 +6,8 @@ The ``pair`` progress step waits for that flag, connects at once through whichev
 Home Assistant picks (the strongest; the caller cannot choose), pairs, and uses the same
 connection to read the identity and probe the optional objects. The same step serves
 reauthentication (the bond was lost) and reconfiguration (re-pair on demand after moving a proxy).
-It first makes local BlueZ adapters forget any bond they hold, so they pair rather than reconnect.
+A local BlueZ adapter is made to forget its bond only when the pump refuses it inside a fresh
+button window, so an abandoned flow never strands an adapter that still had a working bond.
 """
 
 from __future__ import annotations
@@ -44,6 +45,7 @@ from grundfos_ble import (
     GrundfosError,
     GrundfosPump,
     PairingRequired,
+    ProbeResult,
     RequestTimeout,
     parse_advertisement,
     profile_for,
@@ -53,6 +55,7 @@ from grundfos_ble import (
 from .const import (
     BUTTON_FLAG_MAX_AGE,
     BUTTON_WAIT_TIMEOUT,
+    BUTTON_WINDOW,
     CONF_BLE_SOFTWARE_VERSION,
     CONF_CAPABILITIES,
     CONF_MODEL,
@@ -113,6 +116,28 @@ def _fresh_button_press(service_info: BluetoothServiceInfoBleak) -> bool:
     if advertisement is None or not advertisement.button_pressed:
         return False
     return time.monotonic() - service_info.time <= BUTTON_FLAG_MAX_AGE
+
+
+def _button_window_open(hass: HomeAssistant, address: str) -> bool:
+    """Return True while the pump still advertises the button flag (about four seconds)."""
+    info = bluetooth.async_last_service_info(hass, address, connectable=True)
+    if info is None:
+        return False
+    advertisement = parse_advertisement(info.service_data.get(GRUNDFOS_SERVICE_UUID, b""))
+    return (
+        advertisement is not None
+        and advertisement.button_pressed
+        and time.monotonic() - info.time <= BUTTON_WINDOW
+    )
+
+
+def _capabilities(probe: ProbeResult, stored: list[str] | None) -> list[str]:
+    """Return what the pump offers: on re-pairing, what it had unless it now denies it.
+
+    An object that merely got no answer during the probe (silence, a CRC error) stays.
+    """
+    kept = set(stored or ()) - probe.denied
+    return sorted(kept | probe.supported)
 
 
 def _likely_path(hass: HomeAssistant, address: str) -> str | None:
@@ -183,11 +208,24 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_bluetooth_confirm()
 
         current = self._async_current_ids(include_ignore=False)
+        unsupported: dict[str, str] | None = None
         for info in bluetooth.async_discovered_service_info(self.hass, connectable=True):
-            if info.address in current or not _is_grundfos(info):
+            if info.address in current:
                 continue
-            self._discovered[info.address] = info
+            if _is_grundfos(info):
+                self._discovered[info.address] = info
+            elif (
+                advertisement := parse_advertisement(
+                    info.service_data.get(GRUNDFOS_SERVICE_UUID, b"")
+                )
+            ) is not None:
+                unsupported = {"family": str(advertisement.family), "type": str(advertisement.type)}
         if not self._discovered:
+            if unsupported is not None:
+                # A discovery flow that aborts is never shown; here the user sees the numbers.
+                return self.async_abort(
+                    reason="unsupported_model", description_placeholders=unsupported
+                )
             return self.async_abort(reason="no_devices_found")
         return self.async_show_form(
             step_id="user",
@@ -277,6 +315,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._entry is not None and self._entry.state is ConfigEntryState.LOADED:
             coordinator = self._entry.runtime_data
             coordinator.pause_polling()
+            await coordinator.async_wait_idle()  # a running poll would hold the pump's link
         try:
             return await self._async_wait_and_pair(address)
         except Exception:
@@ -288,12 +327,6 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
 
     async def _async_wait_and_pair(self, address: str) -> PairOutcome:
         """Wait for the button, then connect, pair, read the identity and probe."""
-        # A new bond is wanted. A local BlueZ adapter would reconnect with keys the pump may
-        # have dropped and never pair, so it forgets them first; proxies are left alone.
-        for scanner_device in bluetooth.async_scanner_devices_by_address(
-            self.hass, address, connectable=True
-        ):
-            await remove_bluez_bond(scanner_device.ble_device)
         try:
             await async_process_advertisements(
                 self.hass,
@@ -308,43 +341,66 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         device = bluetooth.async_ble_device_from_address(self.hass, address, connectable=True)
         if device is None:
             return PairOutcome(error="no_connectable_proxy")
-        source = _likely_path(self.hass, address) or "unknown"
         transport = BleTransport(
             device,
             name=self._name,
             max_attempts=1,
             connect_timeout=PAIR_CONNECT_TIMEOUT,
+            pairing=True,
+            device_callback=lambda: bluetooth.async_ble_device_from_address(
+                self.hass, address, connectable=True
+            ),
         )
         pump = GrundfosPump(transport)
         started = time.monotonic()
+
+        def source() -> str:
+            return transport.last_source or _likely_path(self.hass, address) or "unknown"
+
+        def missed() -> PairOutcome:
+            return PairOutcome(
+                error="window_missed",
+                placeholders={"source": source(), "seconds": f"{time.monotonic() - started:.1f}"},
+            )
+
         try:
-            await transport.connect()
-            connect_seconds = time.monotonic() - started
-            identity = await pump.read_identity()
-            probe = await pump.probe_capabilities()
-        except PairingRequired as err:
-            _LOGGER.debug(
-                "Pairing refused via %s after %.1fs: %s", source, time.monotonic() - started, err
-            )
-            return PairOutcome(
-                error="window_missed",
-                placeholders={"source": source, "seconds": f"{time.monotonic() - started:.1f}"},
-            )
-        except (ConnectionLost, RequestTimeout) as err:
-            # The pump took the link and then would not talk: the usual sign of a missed window.
-            _LOGGER.debug("No answer via %s: %s", source, err)
-            if transport.reply_seen:
-                return PairOutcome(
-                    error="cannot_connect", placeholders={"source": source, "reason": str(err)}
+            try:
+                await self._async_connect_for_pairing(transport, address)
+            except PairingRequired as err:
+                _LOGGER.debug(
+                    "Pairing refused via %s after %.1fs: %s",
+                    source(),
+                    time.monotonic() - started,
+                    err,
                 )
-            return PairOutcome(
-                error="window_missed",
-                placeholders={"source": source, "seconds": f"{time.monotonic() - started:.1f}"},
-            )
+                return missed()
+            except (ConnectionLost, RequestTimeout) as err:
+                _LOGGER.debug("No encrypted link via %s: %s", source(), err)
+                return missed()
+            connect_seconds = time.monotonic() - started
+            # Paired: from here a timeout is the pump not answering, not a missed window. One
+            # more try on a fresh link (with the new bond) before giving up.
+            for final_try in (False, True):
+                try:
+                    identity = await pump.read_identity()
+                    probe = await pump.probe_capabilities()
+                    break
+                except (ConnectionLost, RequestTimeout) as err:
+                    _LOGGER.debug("Paired via %s but no answer: %s", source(), err)
+                    if final_try:
+                        return PairOutcome(
+                            error="cannot_connect",
+                            placeholders={
+                                "source": source(),
+                                "reason": f"the pump paired but did not answer ({err})",
+                            },
+                        )
+                    await transport.disconnect()
+                    await transport.connect()
         except (GrundfosError, TimeoutError) as err:
-            _LOGGER.debug("Pairing connection failed via %s: %s", source, err)
+            _LOGGER.debug("Pairing connection failed via %s: %s", source(), err)
             return PairOutcome(
-                error="cannot_connect", placeholders={"source": source, "reason": str(err)}
+                error="cannot_connect", placeholders={"source": source(), "reason": str(err)}
             )
         finally:
             await transport.disconnect()
@@ -357,12 +413,13 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         _LOGGER.info(
             "Paired with %s via %s in %.1fs; optional objects: %s",
             address,
-            source,
+            source(),
             connect_seconds,
             ", ".join(sorted(probe.supported)) or "none",
         )
         for key, reason in probe.errors.items():
             _LOGGER.debug("Object %s not available: %s", key, reason)
+        stored = None if self._entry is None else self._entry.data.get(CONF_CAPABILITIES)
         return PairOutcome(
             name=identity.unit_name or self._name,
             data={
@@ -372,11 +429,34 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
                 CONF_SOFTWARE_VERSION: identity.software_version,
                 CONF_BLE_SOFTWARE_VERSION: identity.ble_software_version,
                 CONF_UNIT_NAME: identity.unit_name,
-                CONF_CAPABILITIES: sorted(probe.supported),
-                CONF_PAIRED_SOURCE: source,
+                CONF_CAPABILITIES: _capabilities(probe, stored),
+                CONF_PAIRED_SOURCE: source(),
                 CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
             },
         )
+
+    async def _async_connect_for_pairing(self, transport: BleTransport, address: str) -> None:
+        """Connect and pair, first with whatever bond the adapter holds.
+
+        A local BlueZ adapter whose bond the pump dropped reconnects with the old keys and never
+        pairs. Only when the pump refuses it while the button window is still open is the
+        adapter's bond removed and the connection tried once more; removing it earlier would
+        strand the adapter if the user never pressed the button.
+        """
+        try:
+            await transport.connect()
+        except PairingRequired:
+            if not _button_window_open(self.hass, address):
+                raise
+            removed = False
+            for scanner_device in bluetooth.async_scanner_devices_by_address(
+                self.hass, address, connectable=True
+            ):
+                removed |= await remove_bluez_bond(scanner_device.ble_device)
+            if not removed:
+                raise
+            _LOGGER.debug("Removed a stale BlueZ bond for %s; pairing again", address)
+            await transport.connect()
 
     # -- reauth and reconfigure ----------------------------------------------------------------
 

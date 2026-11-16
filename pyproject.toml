@@ -9,12 +9,12 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "pytest-homeassistant-custom-component>=0.13.375",
-    "grundfos-ble==0.1.3",
+    "pytest-homeassistant>=2026.11.1",
+    "grundfos-ble==0.2.0",
     "pytest-cov>=7",
     # Requirements of the core bluetooth/usb components the tests load
     "aiousbwatcher", "serialx", "bluetooth-adapters", "bluetooth-auto-recovery",
-    "bluetooth-data-tools", "dbus-fast", "habluetooth",
+    "bluetooth-data-tools", "dbus-fast", "habluetooth", "aiohasupervisor",
     "ruff>=0.14",
     "mypy>=1.19",
 ]

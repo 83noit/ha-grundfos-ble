@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass, replace
+import contextlib
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 import logging
 import time
@@ -21,11 +22,13 @@ from homeassistant.components.bluetooth import (
 from homeassistant.components.bluetooth.active_update_coordinator import (
     ActiveBluetoothDataUpdateCoordinator,
 )
-from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntry
+from homeassistant.config_entries import SOURCE_REAUTH, ConfigEntry, ConfigEntryState
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import CALLBACK_TYPE, CoreState, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.device_registry import CONNECTION_BLUETOOTH, DeviceInfo
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.util import dt as dt_util
 
 from grundfos_ble import (
     GRUNDFOS_SERVICE_UUID,
@@ -42,6 +45,7 @@ from grundfos_ble import (
     NotSupported,
     OperationState,
     PairingRequired,
+    PairingUnsupported,
     ProtocolError,
     RequestTimeout,
     Statistics,
@@ -64,14 +68,21 @@ from .const import (
     CONF_BLE_SOFTWARE_VERSION,
     CONF_CAPABILITIES,
     CONF_MODEL,
+    CONF_PAIRED_AT,
     CONF_PAIRED_SOURCE,
     CONF_SERIAL_NUMBER,
     CONF_SOFTWARE_VERSION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
     FAILURES_BEFORE_UNAVAILABLE,
+    FORGETFUL_PROXY_WINDOW,
+    ISSUE_PROXY_CANNOT_PAIR,
+    ISSUE_PROXY_FORGETS_BOND,
+    ISSUE_UNREACHABLE,
     MAX_PAIRING_FAILURES,
+    MAX_SILENT_BACKOFF,
     OPT_SCAN_INTERVAL,
+    OUTAGE_ISSUE_AFTER,
     POLL_TIMEOUT,
     REAUTH_BACKOFF,
     RETRY_PAUSE,
@@ -89,7 +100,11 @@ adverts before callbacks, so adverts alone cannot pace the polling.
 
 @dataclass(slots=True)
 class PumpData:
-    """Everything one poll produced. None means not read (unsupported or failed)."""
+    """Everything one poll produced. None means not read (unsupported or failed) on that poll.
+
+    Optional values are never carried over from an earlier poll: what a poll could not read is
+    None, and ``read`` names the capabilities it did read.
+    """
 
     measurements: Measurements | None = None
     operation: OperationState | None = None
@@ -104,6 +119,8 @@ class PumpData:
     """The setpoint saved for the running mode; diagnostics only, for comparison with operation."""
     polled_at: float | None = None
     """time.monotonic() of the successful poll."""
+    read: frozenset[str] = frozenset()
+    """The optional capabilities this poll read."""
 
 
 class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
@@ -140,7 +157,18 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self._cancel_tick: CALLBACK_TYPE | None = None
         self._polling = False
         self._paused = False
+        self._idle = asyncio.Event()
+        self._idle.set()
+        self._poll_task: asyncio.Task[object] | None = None
         self._object_problems: set[str] = set()
+        self._silent: dict[str, int] = {}
+        """Optional step -> how many polls in a row it went silent."""
+        self._skip_until: dict[str, int] = {}
+        """Optional step -> the poll count from which it is tried again."""
+        self.good_poll_seen = False
+        self.forgetful_proxy = False
+        self._failing_since: float | None = None
+        self._issues: set[str] = set()
         self.device_info = DeviceInfo(
             identifiers={(DOMAIN, address)},
             connections={(CONNECTION_BLUETOOTH, address)},
@@ -192,14 +220,36 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         if self._cancel_tick is not None:
             self._cancel_tick()
             self._cancel_tick = None
+        if self._poll_task is not None and not self._poll_task.done():
+            self._poll_task.cancel()  # a poll must not outlive the entry
         super()._async_stop()
+
+    async def async_stop_polling(self) -> None:
+        """Cancel a running poll, wait for it to end and drop any poll it queued."""
+        task = self._poll_task
+        if task is not None and not task.done():
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await asyncio.wait({task})
+        self._debounced_poll.async_cancel()
+
+    async def async_wait_idle(self) -> None:
+        """Wait, at most one poll's length, for a running poll to finish."""
+        with contextlib.suppress(TimeoutError):
+            async with asyncio.timeout(POLL_TIMEOUT):
+                await self._idle.wait()
 
     @callback
     def _async_tick(self, _now: datetime) -> None:
-        """Track the pump's adverts and schedule a poll when one is due."""
+        """Track the pump's adverts and schedule a poll when one is due.
+
+        Freshness is judged on connectable adverts only: a pump heard by a passive scanner alone
+        cannot be polled, so it counts as gone.
+        """
         heard = bluetooth.async_last_service_info(self.hass, self.address, connectable=False)
+        info = bluetooth.async_last_service_info(self.hass, self.address, connectable=True)
         now = monotonic_time_coarse()
-        fresh = heard is not None and now - heard.time < ADVERT_STALE_SECONDS
+        fresh = info is not None and now - info.time < ADVERT_STALE_SECONDS
         if heard is not None:
             self.rssi = heard.rssi
             self.source = heard.source
@@ -209,7 +259,6 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             self.async_update_listeners()
         if not fresh:
             return
-        info = bluetooth.async_last_service_info(self.hass, self.address, connectable=True)
         if not self.available:
             # After an outage a connectable advert can be stored without a callback, when a
             # non-connectable scanner was heard first, and the unchanging payload filters the
@@ -261,6 +310,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             self._unavailable_logged = True
         self.data = PumpData()
         self.consecutive_failures = 0
+        self._failing_since = None
 
     @callback
     def _async_handle_unavailable(self, service_info: BluetoothServiceInfoBleak) -> None:
@@ -285,6 +335,8 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
     async def _async_poll_pump(self, service_info: BluetoothServiceInfoBleak) -> PumpData:
         self.poll_count += 1
         self._polling = True
+        self._idle.clear()
+        self._poll_task = asyncio.current_task()
         try:
             async with asyncio.timeout(POLL_TIMEOUT):
                 data = await self._async_attempt(service_info, retry=True)
@@ -298,6 +350,8 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             return self.data
         finally:
             self._polling = False
+            self._poll_task = None
+            self._idle.set()
 
     async def _async_attempt(
         self, service_info: BluetoothServiceInfoBleak, *, retry: bool
@@ -320,7 +374,14 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             await transport.connect()
             data = await self._read(pump)
         except PairingRequired as err:
-            self._note_refusal(err)
+            self._note_refusal(err, transport.last_source)
+            return self.data
+        except PairingUnsupported as err:
+            self._reset_pairing_evidence()
+            self._raise_issue(
+                ISSUE_PROXY_CANNOT_PAIR, {"proxy": self._scanner_name(transport.last_source)}
+            )
+            self._record_failure(err)
             return self.data
         except (GrundfosError, BleakError, TimeoutError) as err:
             if retry and isinstance(err, (RequestTimeout, ConnectionLost)):
@@ -341,14 +402,21 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         return data
 
     async def _read(self, pump: GrundfosPump) -> PumpData:
-        """Read the measurements, then whatever optional objects can be had on this link."""
-        data = replace(
-            self.data, measurements=await pump.read_measurements(), polled_at=time.monotonic()
-        )
+        """Read the measurements, then whatever optional objects can be had.
+
+        Nothing is carried over from the last poll. A link error during the optional reads
+        brings the link up once more and goes on from the object that failed; an object that
+        stays silent on the fresh link is skipped for 1, 2, 4 ... 32 polls.
+        """
+        data = PumpData(measurements=await pump.read_measurements(), polled_at=time.monotonic())
+        read: set[str] = set()
 
         async def operation() -> None:
             data.operation = await pump.read_operation()
-            data.stored_setpoint = await self._read_stored_setpoint(pump, data.operation)
+
+        async def stored_setpoint() -> None:
+            if data.operation is not None:
+                data.stored_setpoint = await self._read_stored_setpoint(pump, data.operation)
 
         async def faults() -> None:
             data.faults = await pump.read_faults()
@@ -368,26 +436,65 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         async def energy() -> None:
             data.energy_kwh = await pump.read_energy_kwh()
 
-        steps: tuple[tuple[tuple[str, ...], Callable[[], Awaitable[None]]], ...] = (
-            ((CAP_OPERATION,), operation),
-            ((CAP_ALARMS, CAP_WARNINGS), faults),
-            ((CAP_AUTONIGHT,), autonight),
-            ((CAP_MAX_FLOW_LIMITER, CAP_MIN_FLOW_LIMITER), limiters),
-            ((CAP_STATISTICS,), statistics),
-            ((CAP_TEMPERATURES,), temperatures),
-            ((CAP_ENERGY,), energy),
+        # (name, capabilities it needs and provides, read); the stored setpoint, diagnostics
+        # only, goes last so that it cannot cost the others their turn.
+        steps: tuple[tuple[str, tuple[str, ...], Callable[[], Awaitable[None]]], ...] = (
+            (CAP_OPERATION, (CAP_OPERATION,), operation),
+            (CAP_ALARMS, (CAP_ALARMS, CAP_WARNINGS), faults),
+            (CAP_AUTONIGHT, (CAP_AUTONIGHT,), autonight),
+            (CAP_MAX_FLOW_LIMITER, (CAP_MAX_FLOW_LIMITER, CAP_MIN_FLOW_LIMITER), limiters),
+            (CAP_STATISTICS, (CAP_STATISTICS,), statistics),
+            (CAP_TEMPERATURES, (CAP_TEMPERATURES,), temperatures),
+            (CAP_ENERGY, (CAP_ENERGY,), energy),
+            ("stored_setpoint", (), stored_setpoint),
         )
-        for capabilities, step in steps:
+        reconnected = False
+        for key, capabilities, step in steps:
             if not all(self.has(capability) for capability in capabilities):
                 continue
+            if self.poll_count < self._skip_until.get(key, 0):
+                continue
             try:
-                await step()
+                try:
+                    await step()
+                except GrundfosConnectionError as err:
+                    if reconnected:
+                        raise
+                    reconnected = True
+                    self.logger.debug(
+                        "%s: %s failed (%s); retrying on a fresh link", self.entry.title, key, err
+                    )
+                    await pump.transport.connect()
+                    try:
+                        await step()
+                    except RequestTimeout:
+                        self._note_silence(key)
+                        raise
             except GrundfosConnectionError as err:
                 self.logger.debug("%s: keeping a partial read: %s", self.entry.title, err)
-                break  # the link is gone; what has been read so far is still good
+                break  # the rest of this poll's optional values stay unread (None)
             except (NotSupported, ProtocolError) as err:
-                self._note_object_problem(capabilities[0], err)
+                self._note_object_problem(key, err)
+            else:
+                read.update(capabilities)
+                if self._silent.pop(key, None) is not None:
+                    self._skip_until.pop(key, None)
+                    self.logger.info("%s: %s answers again", self.entry.title, key)
+        data.read = frozenset(read)
         return data
+
+    def _note_silence(self, key: str) -> None:
+        """Skip an object that went silent on a fresh link for 1, 2, 4 ... 32 polls."""
+        count = self._silent.get(key, 0) + 1
+        self._silent[key] = count
+        skip = min(2 ** (count - 1), MAX_SILENT_BACKOFF)
+        self._skip_until[key] = self.poll_count + 1 + skip
+        if count == 1:
+            self.logger.info(
+                "%s: %s did not answer on a fresh link; skipping it for a while",
+                self.entry.title,
+                key,
+            )
 
     async def _read_stored_setpoint(
         self, pump: GrundfosPump, operation: OperationState
@@ -402,14 +509,33 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
     def _note_object_problem(self, capability: str, err: Exception) -> None:
         if capability not in self._object_problems:
             self._object_problems.add(capability)
+            raw = getattr(err, "raw", None)
             self.logger.info(
-                "%s: could not read %s, keeping the rest: %s", self.entry.title, capability, err
+                "%s: could not read %s, keeping the rest: %s%s",
+                self.entry.title,
+                capability,
+                err,
+                f" (frame {raw.hex(' ')})" if isinstance(raw, bytes) else "",
             )
 
-    def _bonded_proxy_hears_pump(self) -> bool:
+    def _scanner_name(self, source: str | None) -> str:
+        """Return the name the user gave the adapter or proxy ``source``, for repair texts."""
+        for scanner in bluetooth.async_current_scanners(self.hass):
+            if scanner.source == source:
+                return str(scanner.name)
+        return source or "unknown"
+
+    def _attempt_used_bonded_path(self, source: str | None) -> bool:
+        """Whether a refused attempt went through the adapter or proxy that holds the bond.
+
+        The transport reports the path Home Assistant chose for the attempt. Without it, the
+        bonded path counts when it at least hears the pump.
+        """
         paired = self.entry.data.get(CONF_PAIRED_SOURCE)
         if not paired or paired == "unknown":
             return True
+        if source is not None:
+            return bool(source == paired)
         return any(
             device.scanner.source == paired
             for device in bluetooth.async_scanner_devices_by_address(
@@ -420,18 +546,53 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
     def _reset_pairing_evidence(self) -> None:
         self.pairing_failures = 0
 
-    def _note_refusal(self, err: PairingRequired) -> None:
-        if self._bonded_proxy_hears_pump():
-            self.pairing_failures += 1
-        else:
-            # Refused by a proxy that never held the bond: says nothing about the pump's bond.
-            self.pairing_failures = 0
+    def _note_refusal(self, err: PairingRequired, source: str | None) -> None:
         self._record_failure(err)
+        if self.forgetful_proxy:
+            return  # the repair issue says what to do; re-pairing alone would loop
+        if not self._attempt_used_bonded_path(source):
+            # Refused through a path that never held the bond: says nothing about the bond.
+            self.pairing_failures = 0
+            return
+        if self.good_poll_seen and self._recently_paired():
+            # A bond that worked and was refused within minutes of pairing: the proxy forgot
+            # it (ESP-IDF 5.5.6 does after one session). Re-pairing would only start the loop.
+            self.forgetful_proxy = True
+            self.pairing_failures = 0
+            self._raise_issue(ISSUE_PROXY_FORGETS_BOND, {"proxy": self._scanner_name(source)})
+            return
+        self.pairing_failures += 1
         if self.pairing_failures >= MAX_PAIRING_FAILURES:
             self._raise_reauth(str(err))
 
+    def _recently_paired(self) -> bool:
+        paired_at = dt_util.parse_datetime(str(self.entry.data.get(CONF_PAIRED_AT) or ""))
+        if paired_at is None:
+            return False
+        return (dt_util.utcnow() - paired_at).total_seconds() < FORGETFUL_PROXY_WINDOW
+
+    def _raise_issue(self, issue_id: str, placeholders: dict[str, str]) -> None:
+        if issue_id in self._issues:
+            return
+        self._issues.add(issue_id)
+        self.logger.warning("%s: raising repair issue %s", self.entry.title, issue_id)
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            f"{issue_id}_{self.entry.entry_id}",
+            is_fixable=False,
+            severity=ir.IssueSeverity.ERROR,
+            translation_key=issue_id,
+            translation_placeholders={"name": self.entry.title, **placeholders},
+        )
+
+    def _clear_issues(self) -> None:
+        for issue_id in (ISSUE_PROXY_FORGETS_BOND, ISSUE_PROXY_CANNOT_PAIR, ISSUE_UNREACHABLE):
+            ir.async_delete_issue(self.hass, DOMAIN, f"{issue_id}_{self.entry.entry_id}")
+        self._issues.clear()
+
     def _raise_reauth(self, reason: str) -> None:
-        if self.reauth_raised:
+        if self.reauth_raised or self.entry.state is not ConfigEntryState.LOADED:
             return
         self.reauth_raised = True
         self.logger.warning(
@@ -453,6 +614,11 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
     def _record_failure(self, err: BaseException) -> None:
         self.consecutive_failures += 1
         self.last_error = f"{type(err).__name__}: {err}"
+        now = time.monotonic()
+        if self._failing_since is None:
+            self._failing_since = now
+        elif now - self._failing_since >= OUTAGE_ISSUE_AFTER and self.advertising:
+            self._raise_issue(ISSUE_UNREACHABLE, {"error": self.last_error})
         if (
             self.consecutive_failures == FAILURES_BEFORE_UNAVAILABLE
             and not self._unavailable_logged
@@ -475,6 +641,11 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             self._unavailable_logged = False
         self.consecutive_failures = 0
         self.last_error = None
+        self._failing_since = None
+        if self._issues or not self.good_poll_seen:
+            self._clear_issues()  # also those left from before a restart
+        self.good_poll_seen = True
+        self.forgetful_proxy = False
         self._reset_pairing_evidence()
         if self.reauth_raised:
             self._close_open_reauth()

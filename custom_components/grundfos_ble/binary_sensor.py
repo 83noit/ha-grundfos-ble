@@ -16,7 +16,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from .const import CAP_AUTONIGHT, CAP_MAX_FLOW_LIMITER, CAP_MIN_FLOW_LIMITER
 from .coordinator import GrundfosConfigEntry, GrundfosCoordinator
-from .entity import GrundfosEntity
+from .entity import GrundfosEntity, supported
 
 PARALLEL_UPDATES = 1
 
@@ -76,8 +76,7 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     async_add_entities(
         GrundfosBinarySensor(coordinator, description)
-        for description in BINARY_SENSORS
-        if all(coordinator.has(capability) for capability in description.requires)
+        for description in supported(hass, "binary_sensor", coordinator, BINARY_SENSORS)
     )
 
 
