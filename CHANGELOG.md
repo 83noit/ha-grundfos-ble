@@ -4,9 +4,9 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [0.2.0b2] - 2026-11-16
 
-Fixes from testing 0.2.0b1 on the real pump.
+Beta. Fixes from testing 0.2.0b1 on the real pump.
 
 ### Fixed
 
@@ -142,6 +142,7 @@ Beta, for testing on real hardware before 0.2.0. Needs grundfos-ble 0.2.0.
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
+[0.2.0b2]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.0b2
 [0.2.0b1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.0b1
 [0.1.4]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.4
 [0.1.3]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.1.3
