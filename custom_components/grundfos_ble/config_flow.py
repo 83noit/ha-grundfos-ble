@@ -72,6 +72,7 @@ from .const import (
     PAIR_CONNECT_TIMEOUT,
 )
 from .coordinator import GrundfosCoordinator
+from .redact import redact_address, scrub
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -319,7 +320,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         try:
             return await self._async_wait_and_pair(address)
         except Exception:
-            _LOGGER.exception("Unexpected error while pairing with %s", address)
+            _LOGGER.exception("Unexpected error while pairing with %s", redact_address(address))
             return PairOutcome(error="unknown")
         finally:
             if coordinator is not None:
@@ -357,6 +358,10 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         def source() -> str:
             return transport.last_source or _likely_path(self.hass, address) or "unknown"
 
+        def logged() -> str:
+            """Return the path for the log, its address shortened to the last two bytes."""
+            return redact_address(transport.last_source or _likely_path(self.hass, address))
+
         def missed() -> PairOutcome:
             return PairOutcome(
                 error="window_missed",
@@ -369,13 +374,13 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
             except PairingRequired as err:
                 _LOGGER.debug(
                     "Pairing refused via %s after %.1fs: %s",
-                    source(),
+                    logged(),
                     time.monotonic() - started,
-                    err,
+                    scrub(str(err)),
                 )
                 return missed()
             except (ConnectionLost, RequestTimeout) as err:
-                _LOGGER.debug("No encrypted link via %s: %s", source(), err)
+                _LOGGER.debug("No encrypted link via %s: %s", logged(), scrub(str(err)))
                 return missed()
             connect_seconds = time.monotonic() - started
             # Paired: from here a timeout is the pump not answering, not a missed window. One
@@ -386,7 +391,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
                     probe = await pump.probe_capabilities()
                     break
                 except (ConnectionLost, RequestTimeout) as err:
-                    _LOGGER.debug("Paired via %s but no answer: %s", source(), err)
+                    _LOGGER.debug("Paired via %s but no answer: %s", logged(), scrub(str(err)))
                     if final_try:
                         return PairOutcome(
                             error="cannot_connect",
@@ -398,7 +403,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
                     await transport.disconnect()
                     await transport.connect()
         except (GrundfosError, TimeoutError) as err:
-            _LOGGER.debug("Pairing connection failed via %s: %s", source(), err)
+            _LOGGER.debug("Pairing connection failed via %s: %s", logged(), scrub(str(err)))
             return PairOutcome(
                 error="cannot_connect", placeholders={"source": source(), "reason": str(err)}
             )
@@ -412,8 +417,8 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
             )
         _LOGGER.info(
             "Paired with %s via %s in %.1fs; optional objects: %s",
-            address,
-            source(),
+            redact_address(address),
+            logged(),
             connect_seconds,
             ", ".join(sorted(probe.supported)) or "none",
         )
@@ -455,7 +460,9 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
                 removed |= await remove_bluez_bond(scanner_device.ble_device)
             if not removed:
                 raise
-            _LOGGER.debug("Removed a stale BlueZ bond for %s; pairing again", address)
+            _LOGGER.debug(
+                "Removed a stale BlueZ bond for %s; pairing again", redact_address(address)
+            )
             await transport.connect()
 
     # -- reauth and reconfigure ----------------------------------------------------------------

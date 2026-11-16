@@ -63,7 +63,10 @@ async def _run_pairing(hass: HomeAssistant, flow_id: str) -> dict[str, Any]:
 
 
 async def test_bluetooth_discovery_pairs_and_creates_entry(
-    hass: HomeAssistant, proxy: FakeProxyScanner, mock_pairing: dict[str, Any]
+    hass: HomeAssistant,
+    proxy: FakeProxyScanner,
+    mock_pairing: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     proxy.inject()
     result = await _start_bluetooth_flow(hass)
@@ -81,6 +84,8 @@ async def test_bluetooth_discovery_pairs_and_creates_entry(
     assert result["data"][CONF_CAPABILITIES] == ["alarms", "operation", "warnings"]
     assert result["data"][CONF_PAIRED_SOURCE] == PROXY_SOURCE
     assert result["result"].unique_id == PUMP_ADDRESS
+    paired = next(r.getMessage() for r in caplog.records if "Paired with" in r.getMessage())
+    assert paired.startswith("Paired with **:**:**:**:12:34 via **:**:**:**:AA:01 in")
     mock_pairing["transport"].connect.assert_awaited_once()
     mock_pairing["transport"].disconnect.assert_awaited_once()
 

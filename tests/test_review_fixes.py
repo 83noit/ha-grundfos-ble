@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+import logging
 import time
 from typing import Any
 from unittest.mock import patch
@@ -460,3 +461,50 @@ async def test_no_poll_starts_on_an_advert_older_than_two_periods(
         "custom_components.grundfos_ble.coordinator.monotonic_time_coarse", return_value=later
     ):
         assert not coordinator._needs_poll(info, 120)
+
+
+# --- Shortened addresses in the log ---
+
+
+async def test_logs_shorten_addresses_and_hide_proxy_names(
+    hass: HomeAssistant,
+    config_entry_basic: MockConfigEntry,
+    proxy: FakeProxyScanner,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="custom_components.grundfos_ble")
+    with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
+        coordinator = await _loaded(hass, config_entry_basic, proxy)
+    error = RequestTimeout(f"{PUMP_NAME} ({PUMP_ADDRESS}): no reply")
+    with patch(COORDINATOR_TRANSPORT, side_effect=lambda *_a, **_k: _FailingTransport(error)):
+        for _ in range(FAILURES_BEFORE_UNAVAILABLE):
+            await coordinator._async_poll()
+    ours = "\n".join(
+        record.getMessage()
+        for record in caplog.records
+        if record.name.startswith("custom_components.grundfos_ble")
+    )
+    assert "poll via **:**:**:**:AA:01 done" in ours
+    assert "cannot read the pump" in ours
+    assert "scanner **:**:**:**:AA:01" in ours
+    assert PROXY_SOURCE not in ours
+    assert PUMP_ADDRESS not in ours
+    assert PROXY_NAME not in ours
+
+
+async def test_diagnostics_find_a_local_adapters_device(
+    hass: HomeAssistant, config_entry_basic: MockConfigEntry, proxy: FakeProxyScanner
+) -> None:
+    adapter_entry = MockConfigEntry(domain="bluetooth", unique_id=PROXY_SOURCE, data={})
+    adapter_entry.add_to_hass(hass)
+    dr.async_get(hass).async_get_or_create(
+        config_entry_id=adapter_entry.entry_id,
+        connections={(dr.CONNECTION_BLUETOOTH, PROXY_SOURCE)},
+        model="BCM4345C0",
+        sw_version="hci 9",
+    )
+    with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
+        await _loaded(hass, config_entry_basic, proxy)
+    result = await async_get_config_entry_diagnostics(hass, config_entry_basic)
+    scanner = result["bluetooth"]["scanners_hearing_the_pump"][0]
+    assert (scanner["model"], scanner["sw_version"]) == ("BCM4345C0", "hci 9")

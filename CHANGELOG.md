@@ -4,6 +4,20 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+
+- Log lines from this integration shorten Bluetooth addresses to their last two bytes, and the
+  "cannot read the pump" line shows each proxy by its shortened address instead of its name.
+  The pump's name stays, since it is how you tell pumps apart.
+
+### Fixed
+
+- Diagnostics no longer call `device_registry.async_get_device`, which Home Assistant 2026.11
+  deprecates and removes in 2027.8. A local adapter's model and firmware version are now found
+  through its Bluetooth entry, as a proxy's are.
+
 ## [0.2.0b2] - 2026-11-16
 
 Beta. Fixes from testing 0.2.0b1 on the real pump.

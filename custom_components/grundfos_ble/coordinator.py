@@ -88,6 +88,7 @@ from .const import (
     REAUTH_BACKOFF,
     RETRY_PAUSE,
 )
+from .redact import redact_address, scrub, scrub_scanners
 
 type GrundfosConfigEntry = ConfigEntry[GrundfosCoordinator]
 
@@ -383,7 +384,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             self.logger.debug(
                 "%s: connected via %s in %.2f s",
                 self.entry.title,
-                transport.last_source,
+                redact_address(transport.last_source),
                 time.monotonic() - started,
             )
             data = await self._read(pump)
@@ -399,7 +400,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             return self.data
         except (GrundfosError, BleakError, TimeoutError) as err:
             if retry and isinstance(err, (RequestTimeout, ConnectionLost)):
-                self.logger.debug("%s: retrying after %s", self.entry.title, err)
+                self.logger.debug("%s: retrying after %s", self.entry.title, scrub(str(err)))
                 return None
             # Only a refusal at the encryption step counts against the bond. A link that
             # comes up and then goes silent or drops is the radio, and must not ask the
@@ -418,7 +419,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self.logger.debug(
             "%s: poll via %s done and disconnected in %.2f s; read %s",
             self.entry.title,
-            transport.last_source,
+            redact_address(transport.last_source),
             self.last_poll_seconds,
             ", ".join(sorted(data.read)) or "measurements only",
         )
@@ -495,7 +496,9 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
                         self._note_silence(key)
                         raise
             except GrundfosConnectionError as err:
-                self.logger.debug("%s: keeping a partial read: %s", self.entry.title, err)
+                self.logger.debug(
+                    "%s: keeping a partial read: %s", self.entry.title, scrub(str(err))
+                )
                 break  # the rest of this poll's optional values stay unread (None)
             except (NotSupported, ProtocolError) as err:
                 self._note_object_problem(key, err)
@@ -527,7 +530,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         try:
             return await pump.read_user_setpoint(ControlMode(operation.control_mode))
         except (NotSupported, ProtocolError, ValueError) as err:
-            self.logger.debug("%s: no stored setpoint: %s", self.entry.title, err)
+            self.logger.debug("%s: no stored setpoint: %s", self.entry.title, scrub(str(err)))
             return None
 
     def _note_object_problem(self, capability: str, err: Exception) -> None:
@@ -622,7 +625,7 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self.logger.warning(
             "%s: %s; it needs pairing again (press its Bluetooth button when the repair asks)",
             self.entry.title,
-            reason,
+            scrub(reason),
         )
         self.entry.async_start_reauth(self.hass)
 
@@ -651,12 +654,12 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
                 "%s: cannot read the pump (%s); it will show as unavailable until a poll "
                 "succeeds. Bluetooth: %s",
                 self.entry.title,
-                self.last_error,
-                self.reachability(),
+                scrub(self.last_error),
+                scrub_scanners(self.hass, self.reachability()),
             )
             self._unavailable_logged = True
         else:
-            self.logger.debug("%s: poll failed: %s", self.entry.title, self.last_error)
+            self.logger.debug("%s: poll failed: %s", self.entry.title, scrub(self.last_error))
         self.async_update_listeners()
 
     def _record_success(self) -> None:

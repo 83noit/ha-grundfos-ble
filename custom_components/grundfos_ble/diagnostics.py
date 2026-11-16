@@ -3,83 +3,56 @@
 from __future__ import annotations
 
 from dataclasses import asdict, is_dataclass
-import re
 from typing import Any
 
 from homeassistant.components import bluetooth
-from homeassistant.components.diagnostics import REDACTED, async_redact_data
+from homeassistant.components.diagnostics import async_redact_data
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
 from .const import CONF_PAIRED_SOURCE, CONF_SERIAL_NUMBER, CONF_UNIT_NAME
 from .coordinator import GrundfosConfigEntry
+from .redact import REDACTED, redact_address, scrub, scrub_scanners
 
 TO_REDACT = {CONF_SERIAL_NUMBER, CONF_UNIT_NAME}
-_ADDRESS = re.compile(r"\b(?:[0-9A-Fa-f]{2}:){5}[0-9A-Fa-f]{2}\b")
-
-
-def redact_address(address: str) -> str:
-    """Keep the last two bytes of a Bluetooth address, enough to tell devices apart."""
-    parts = address.split(":")
-    if len(parts) != 6:
-        return REDACTED
-    return "**:**:**:**:" + ":".join(parts[4:])
-
-
-def _scrub(text: str | None) -> str | None:
-    """Redact every Bluetooth address inside free text such as an error message."""
-    if text is None:
-        return None
-    return _ADDRESS.sub(lambda match: redact_address(match.group(0)), text)
 
 
 def _scrub_names(text: str | None, hass: HomeAssistant, entry: GrundfosConfigEntry) -> str | None:
-    """Redact addresses, the pump's name and every adapter's or proxy's user-chosen name.
+    """Redact addresses, every adapter's or proxy's name, and the pump's name.
 
     Transport errors start with the pump's name, and Home Assistant's reachability text names
-    each scanner; a name is replaced by the scanner's redacted address.
+    each scanner. Diagnostics are files people attach to issues, so the pump's name goes too.
     """
-    if text is None:
+    scrubbed = scrub_scanners(hass, text)
+    if scrubbed is None:
         return None
-    # Home Assistant names a proxy "<name> (<source>)"; either form may appear.
-    names: list[tuple[str, str]] = []
-    for scanner in bluetooth.async_current_scanners(hass):
-        replacement = f"scanner {redact_address(scanner.source)}"
-        full = str(scanner.name or "")
-        bare = full.removesuffix(f" ({scanner.source})")
-        names += [(name, replacement) for name in (full, bare) if name]
-    for name, replacement in sorted(names, key=lambda pair: -len(pair[0])):
-        text = text.replace(name, replacement)
     for pump_name in (entry.title, entry.data.get(CONF_UNIT_NAME)):
         if pump_name:
-            text = text.replace(str(pump_name), REDACTED)
-    return _scrub(text)
+            scrubbed = scrubbed.replace(str(pump_name), REDACTED)
+    return scrubbed
 
 
 def _firmware(hass: HomeAssistant, source: str) -> dict[str, str | None]:
-    """Return the proxy's model and firmware version from its device entry, if known.
+    """Return the adapter's or proxy's model and firmware version from its device entry.
 
-    Home Assistant files each proxy's scanner under a Bluetooth config entry whose unique id is
-    the scanner's source and whose data names the proxy's device. The device itself is
-    registered under the proxy's Wi-Fi MAC, which differs from its Bluetooth MAC (the source),
-    so looking it up by the source alone finds nothing.
+    Home Assistant files each scanner under a Bluetooth config entry whose unique id is the
+    scanner's source. A proxy's entry names the proxy's device, which is registered under its
+    Wi-Fi MAC rather than the Bluetooth MAC the scanner uses; a local adapter's entry owns a
+    device keyed by the adapter's Bluetooth address.
     """
     registry = dr.async_get(hass)
     device = None
     for scanner_entry in hass.config_entries.async_entries(bluetooth.DOMAIN):
-        if scanner_entry.unique_id == source and (
-            device_id := scanner_entry.data.get("source_device_id")
-        ):
+        if scanner_entry.unique_id != source:
+            continue
+        if device_id := scanner_entry.data.get("source_device_id"):
             device = registry.async_get(device_id)
-            break
-    if device is None:  # a local adapter, or an older registration
-        device = registry.async_get_device(
-            connections={
-                (dr.CONNECTION_NETWORK_MAC, dr.format_mac(source)),
-                (dr.CONNECTION_BLUETOOTH, source.upper()),
-            }
-        )
+        else:
+            device = registry.async_get_device_by_connection(
+                (dr.CONNECTION_BLUETOOTH, source), scanner_entry.entry_id
+            )
+        break
     return {
         "model": getattr(device, "model", None),
         "sw_version": getattr(device, "sw_version", None),
@@ -107,7 +80,7 @@ async def async_get_config_entry_diagnostics(
     entry_data = async_redact_data(dict(entry.data), TO_REDACT)
     entry_data[CONF_ADDRESS] = redact_address(address)
     if isinstance(paired := entry_data.get(CONF_PAIRED_SOURCE), str):
-        entry_data[CONF_PAIRED_SOURCE] = _scrub(paired)
+        entry_data[CONF_PAIRED_SOURCE] = scrub(paired)
     scanners = [
         {
             "source": redact_address(device.scanner.source),
@@ -124,7 +97,7 @@ async def async_get_config_entry_diagnostics(
         "bluetooth": {
             "available": coordinator.available,
             "last_rssi": coordinator.rssi,
-            "last_source": _scrub(coordinator.source),
+            "last_source": scrub(coordinator.source),
             "scanners_hearing_the_pump": scanners,
             "reachability": _scrub_names(coordinator.reachability(), hass, entry),
             "advertisement": None
@@ -150,7 +123,7 @@ async def async_get_config_entry_diagnostics(
             "capabilities": sorted(coordinator.capabilities),
             "read_last_poll": sorted(coordinator.last_read),
             "last_poll_seconds": coordinator.last_poll_seconds,
-            "last_poll_source": _scrub(coordinator.last_poll_source),
+            "last_poll_source": scrub(coordinator.last_poll_source),
             "forgetful_proxy": coordinator.forgetful_proxy,
         },
         "data": _plain(coordinator.data),
