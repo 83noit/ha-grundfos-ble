@@ -27,7 +27,8 @@ from custom_components.grundfos_ble.const import (
 )
 from grundfos_ble import ProbeResult
 from grundfos_ble.testing import FIXTURES as LIB_FIXTURES
-from grundfos_ble.testing import ReplayTransport, load_fixture
+from grundfos_ble.testing import ReplayTransport as LibraryReplayTransport
+from grundfos_ble.testing import load_fixture
 
 PUMP_ADDRESS = "AA:BB:CC:DD:12:34"
 PUMP_NAME = "Test pump"
@@ -186,6 +187,12 @@ def config_entry_basic() -> MockConfigEntry:
         unique_id=PUMP_ADDRESS,
         data={**ENTRY_DATA, CONF_CAPABILITIES: []},
     )
+
+
+class ReplayTransport(LibraryReplayTransport):
+    """The library's replay transport, reporting the fake proxy as the path it used."""
+
+    last_source: str | None = PROXY_SOURCE
 
 
 @pytest.fixture

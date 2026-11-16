@@ -58,13 +58,32 @@ def _scrub_names(text: str | None, hass: HomeAssistant, entry: GrundfosConfigEnt
 
 
 def _firmware(hass: HomeAssistant, source: str) -> dict[str, str | None]:
-    """Return the proxy's model and firmware version from its device entry, if known."""
-    device = dr.async_get(hass).async_get_device(
-        connections={(dr.CONNECTION_NETWORK_MAC, dr.format_mac(source))}
-    )
-    if device is None:
-        return {"model": None, "sw_version": None}
-    return {"model": device.model, "sw_version": device.sw_version}
+    """Return the proxy's model and firmware version from its device entry, if known.
+
+    Home Assistant files each proxy's scanner under a Bluetooth config entry whose unique id is
+    the scanner's source and whose data names the proxy's device. The device itself is
+    registered under the proxy's Wi-Fi MAC, which differs from its Bluetooth MAC (the source),
+    so looking it up by the source alone finds nothing.
+    """
+    registry = dr.async_get(hass)
+    device = None
+    for scanner_entry in hass.config_entries.async_entries(bluetooth.DOMAIN):
+        if scanner_entry.unique_id == source and (
+            device_id := scanner_entry.data.get("source_device_id")
+        ):
+            device = registry.async_get(device_id)
+            break
+    if device is None:  # a local adapter, or an older registration
+        device = registry.async_get_device(
+            connections={
+                (dr.CONNECTION_NETWORK_MAC, dr.format_mac(source)),
+                (dr.CONNECTION_BLUETOOTH, source.upper()),
+            }
+        )
+    return {
+        "model": getattr(device, "model", None),
+        "sw_version": getattr(device, "sw_version", None),
+    }
 
 
 def _plain(value: Any) -> Any:
@@ -129,7 +148,9 @@ async def async_get_config_entry_diagnostics(
             "reauth_raised": coordinator.reauth_raised,
             "last_error": _scrub_names(coordinator.last_error, hass, entry),
             "capabilities": sorted(coordinator.capabilities),
-            "read_last_poll": sorted(coordinator.data.read),
+            "read_last_poll": sorted(coordinator.last_read),
+            "last_poll_seconds": coordinator.last_poll_seconds,
+            "last_poll_source": _scrub(coordinator.last_poll_source),
             "forgetful_proxy": coordinator.forgetful_proxy,
         },
         "data": _plain(coordinator.data),

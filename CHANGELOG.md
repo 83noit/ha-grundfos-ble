@@ -4,6 +4,25 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Fixes from testing 0.2.0b1 on the real pump.
+
+### Fixed
+
+- Diagnostics now find each ESPHome proxy's model and firmware version. They looked the proxy up
+  by its Bluetooth MAC, but ESPHome registers the device under its Wi-Fi MAC; they now follow
+  Home Assistant's own link from the proxy's Bluetooth entry to its device.
+- Diagnostics keep what the last reading read, how long it took and which proxy it went
+  through after the pump stops advertising, instead of showing an empty list.
+- No reading starts when the pump's last advert is more than 20 s old. A pump switched off by
+  a thermostat or timer was still polled once, about 25 s after the power cut, which only added
+  a failure against the proxy.
+
+### Added
+
+- Debug logging gives each reading's proxy, connect time and total time, and what it read.
+
 ## [0.2.0b1] - 2026-11-16
 
 Beta, for testing on real hardware before 0.2.0. Needs grundfos-ble 0.2.0.

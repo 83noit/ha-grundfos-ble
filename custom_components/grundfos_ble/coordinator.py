@@ -83,6 +83,7 @@ from .const import (
     MAX_SILENT_BACKOFF,
     OPT_SCAN_INTERVAL,
     OUTAGE_ISSUE_AFTER,
+    POLL_ADVERT_MAX_AGE,
     POLL_TIMEOUT,
     REAUTH_BACKOFF,
     RETRY_PAUSE,
@@ -153,6 +154,10 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         self.advertising = False
         self.last_error: str | None = None
         self.last_frames: list[tuple[str, str]] = []
+        self.last_read: frozenset[str] = frozenset()
+        """What the last successful poll read; kept when the readings are dropped."""
+        self.last_poll_seconds: float | None = None
+        self.last_poll_source: str | None = None
         self._unavailable_logged = False
         self._cancel_tick: CALLBACK_TYPE | None = None
         self._polling = False
@@ -295,6 +300,8 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
         interval = REAUTH_BACKOFF if self.reauth_raised else self.scan_interval
         if seconds_since_last_poll is not None and seconds_since_last_poll < interval:
             return False
+        if monotonic_time_coarse() - service_info.time > POLL_ADVERT_MAX_AGE:
+            return False  # most likely just lost power; the advert check will say so
         return (
             bluetooth.async_ble_device_from_address(
                 self.hass, service_info.device.address, connectable=True
@@ -370,8 +377,15 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
             ),
         )
         pump = GrundfosPump(transport)
+        started = time.monotonic()
         try:
             await transport.connect()
+            self.logger.debug(
+                "%s: connected via %s in %.2f s",
+                self.entry.title,
+                transport.last_source,
+                time.monotonic() - started,
+            )
             data = await self._read(pump)
         except PairingRequired as err:
             self._note_refusal(err, transport.last_source)
@@ -398,6 +412,16 @@ class GrundfosCoordinator(ActiveBluetoothDataUpdateCoordinator[PumpData]):
                 (direction, frame.hex(" ")) for direction, frame in transport.last_frames
             ]
             await transport.disconnect()
+        self.last_read = data.read
+        self.last_poll_seconds = round(time.monotonic() - started, 2)
+        self.last_poll_source = transport.last_source
+        self.logger.debug(
+            "%s: poll via %s done and disconnected in %.2f s; read %s",
+            self.entry.title,
+            transport.last_source,
+            self.last_poll_seconds,
+            ", ".join(sorted(data.read)) or "measurements only",
+        )
         self._record_success()
         return data
 

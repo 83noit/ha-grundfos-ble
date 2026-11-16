@@ -8,10 +8,12 @@ import time
 from typing import Any
 from unittest.mock import patch
 
+from bluetooth_data_tools import monotonic_time_coarse
 from homeassistant import config_entries
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
@@ -28,6 +30,7 @@ from custom_components.grundfos_ble.const import (
     ISSUE_UNREACHABLE,
     MAX_PAIRING_FAILURES,
     OUTAGE_ISSUE_AFTER,
+    POLL_ADVERT_MAX_AGE,
 )
 from custom_components.grundfos_ble.diagnostics import async_get_config_entry_diagnostics
 from grundfos_ble import PairingRequired, PairingUnsupported, RequestTimeout
@@ -35,16 +38,18 @@ from grundfos_ble.genibus.apdu import Apdu
 from grundfos_ble.genibus.objects import ObjectRef, get_request
 from grundfos_ble.genibus.telegram import Telegram
 from grundfos_ble.testing import FIXTURES as LIB_FIXTURES
-from grundfos_ble.testing import Exchange, ReplayTransport, load_fixture
+from grundfos_ble.testing import Exchange, load_fixture
 
 from .conftest import (
     ALL_CAPABILITIES,
     ENTRY_DATA,
     PROXY_NAME,
+    PROXY_SOURCE,
     PUMP_ADDRESS,
     PUMP_NAME,
     SERVICE_DATA_OTHER_PUMP,
     FakeProxyScanner,
+    ReplayTransport,
 )
 from .test_init import COORDINATOR_TRANSPORT, _FailingTransport, _loaded, _reauth_flows
 
@@ -400,3 +405,58 @@ async def test_entities_of_denied_objects_are_removed(
     with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
         await _loaded(hass, entry, proxy)
     assert registry.async_get(stale.entity_id) is None
+
+
+# --- Findings of the 0.2.0b1 hardware test ---
+
+
+async def test_diagnostics_find_the_proxy_firmware_through_its_bluetooth_entry(
+    hass: HomeAssistant, config_entry_basic: MockConfigEntry, proxy: FakeProxyScanner
+) -> None:
+    """ESPHome files the proxy under its Wi-Fi MAC, not the Bluetooth MAC the scanner uses."""
+    esphome = MockConfigEntry(domain="esphome")
+    esphome.add_to_hass(hass)
+    device = dr.async_get(hass).async_get_or_create(
+        config_entry_id=esphome.entry_id,
+        connections={(dr.CONNECTION_NETWORK_MAC, "00:11:22:33:aa:ff")},
+        model="AIR-1",
+        sw_version="2026.9.1",
+    )
+    MockConfigEntry(
+        domain="bluetooth",
+        unique_id=PROXY_SOURCE,
+        data={"source": PROXY_SOURCE, "source_device_id": device.id},
+    ).add_to_hass(hass)
+    with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
+        await _loaded(hass, config_entry_basic, proxy)
+    result = await async_get_config_entry_diagnostics(hass, config_entry_basic)
+    scanner = result["bluetooth"]["scanners_hearing_the_pump"][0]
+    assert (scanner["model"], scanner["sw_version"]) == ("AIR-1", "2026.9.1")
+
+
+async def test_what_the_last_poll_read_outlives_a_power_cut(
+    hass: HomeAssistant, config_entry_full: MockConfigEntry, proxy: FakeProxyScanner
+) -> None:
+    with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
+        coordinator = await _loaded(hass, config_entry_full, proxy)
+    coordinator._async_forget_data()  # the pump stopped advertising
+    assert coordinator.data.read == frozenset()
+    result = await async_get_config_entry_diagnostics(hass, config_entry_full)
+    assert "statistics" in result["polling"]["read_last_poll"]
+    assert result["polling"]["last_poll_seconds"] is not None
+    assert result["polling"]["last_poll_source"] == "**:**:**:**:AA:01"
+
+
+async def test_no_poll_starts_on_an_advert_older_than_two_periods(
+    hass: HomeAssistant, config_entry_basic: MockConfigEntry, proxy: FakeProxyScanner
+) -> None:
+    """A poll 25 s after the power was cut only added a failure against the proxy."""
+    with patch(COORDINATOR_TRANSPORT, side_effect=_full()):
+        coordinator = await _loaded(hass, config_entry_basic, proxy)
+    info = coordinator._last_service_info
+    assert coordinator._needs_poll(info, 120)
+    later = monotonic_time_coarse() + POLL_ADVERT_MAX_AGE + 5
+    with patch(
+        "custom_components.grundfos_ble.coordinator.monotonic_time_coarse", return_value=later
+    ):
+        assert not coordinator._needs_poll(info, 120)

@@ -32,15 +32,14 @@ from custom_components.grundfos_ble.const import (
     RETRY_PAUSE,
 )
 from grundfos_ble import ConnectionLost, GrundfosConnectionError, PairingRequired, RequestTimeout
-from grundfos_ble.testing import ReplayTransport
 
 from .conftest import (
     ENTRY_DATA,
-    PROXY_SOURCE,
     PUMP_ADDRESS,
     PUMP_NAME,
     SERVICE_DATA_BUTTON,
     FakeProxyScanner,
+    ReplayTransport,
 )
 
 
@@ -158,8 +157,6 @@ async def test_partial_read_keeps_measurements(
 
 
 class _FailingTransport(ReplayTransport):
-    last_source: str | None = PROXY_SOURCE
-
     def __init__(self, error: Exception) -> None:
         super().__init__([])
         self._error = error

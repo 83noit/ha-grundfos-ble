@@ -42,6 +42,12 @@ POLL_TIMEOUT: Final = 75.0
 Above the worst case of two links, each with a retried connect (2 x 10 s), the settle pause and
 one 10 s request timeout (~62 s), so the retry on a fresh link is not cut short.
 """
+POLL_ADVERT_MAX_AGE: Final = 20.0
+"""Seconds since the last connectable advert beyond which no poll starts.
+
+The pump advertises every ~8 s, so an advert this old most likely means it lost power (a
+thermostat or timer cut it); polling then only adds a failure against the proxy. The pump is
+declared gone later, after ADVERT_STALE_SECONDS."""
 FAILURES_BEFORE_UNAVAILABLE: Final = 3
 """Consecutive failed polls before entities report unavailable (one or two misses are noise)."""
 FORGETFUL_PROXY_WINDOW: Final = 1800.0
