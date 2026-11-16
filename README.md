@@ -10,8 +10,8 @@
 Reads a **Grundfos ALPHA2 GO** circulator pump over Bluetooth LE, through an ESPHome
 Bluetooth proxy, using the pump's native GENIbus protocol. Flow, head, power, speed, voltage,
 temperatures, control mode, setpoint, alarms and warnings become Home Assistant sensors. The
-integration is read-only: `grundfos-ble` 0.1.0 does not write to pumps, and its write methods
-raise `NotSupported`.
+integration is read-only: it never writes to the pump, and the `grundfos-ble` release it uses
+refuses every write.
 
 Built on [grundfos-ble](https://github.com/83noit/grundfos-ble), whose
 [acknowledgements](https://github.com/83noit/grundfos-ble#acknowledgements) credit the projects
@@ -22,14 +22,19 @@ This project is not affiliated with Grundfos.
 ## What you need
 
 - A Grundfos ALPHA2 GO (other Grundfos Bluetooth pumps such as the ALPHA3, ALPHA HWR and
-  SCALA1 use the same transport but are not yet supported; the integration tells you the
-  family and type numbers it saw so support can be added).
+  SCALA1 use the same transport but are not yet supported. Adding one by hand from
+  *Add integration* tells you the family and type numbers it saw, so support can be added;
+  automatic discovery stays silent about them).
 - Home Assistant 2026.11 or newer.
 - **A Bluetooth proxy that can make connections, within a few metres of the pump.** An
   ESPHome device with `bluetooth_proxy:` (active connections are the default) works; the
   connection has to come up within about three seconds of pressing the pump's button, which
   rules out weak or distant proxies. Shelly devices only relay advertisements and cannot be
-  used for this pump.
+  used for this pump. **One connectable proxy clearly closest to the pump** works best: the
+  pairing belongs to the proxy that made it, and Home Assistant may try another one.
+- ESPHome on that proxy recent enough to support pairing, and not built with ESP-IDF
+  5.5.6 (ESPHome 2026.10), which forgets a pairing after one connection. The integration
+  raises a repair issue when it sees either.
 - The pump powered. Many installations switch the pump through a thermostat; the integration
   copes (entities go unavailable while the pump is off and come back when it advertises), but
   pairing needs it on.
@@ -75,7 +80,9 @@ The pairing (bond) is stored **on the proxy that paired**. Consequences:
   as unavailable and recovers about a minute after the app disconnects. Use *Disconnect* in the
   app rather than only closing it. While Home Assistant is connected, for a few seconds per
   reading, the app has to wait. Polling pauses whenever the pump signals a button press, so as
-  not to take the pairing window from the app.
+  not to take the pairing window from the app. The pump's advertisement has a flag that is
+  probably "a client is connected"; until that is confirmed on the ALPHA2 GO the integration
+  does not use it to skip readings while the app is connected.
 
 ## Entities
 
@@ -87,7 +94,7 @@ The pairing (bond) is stored **on the proxy that paired**. Consequences:
 | Alarm code, Warning code | Enum of Grundfos error codes, `none` when clear. Read over the connection. |
 | Media temperature | The pump's own estimate of the water temperature. |
 | Connected | Diagnostic connectivity: on while the pump advertises and recent readings succeeded. |
-| Voltage, Differential pressure, DC-link voltage, Current, Shaft power, Ambient temperature, PCB temperature, Running time in the last 24 h, Powered time since commissioning, Power-ups, Operation mode, flow limits, AutoNight, limiter flags, Starts in the last 24 h, Signal strength | Disabled by default; enable what you need. Shaft power and the temperature slots are decoded from captured traffic and marked unconfirmed. |
+| Voltage, Differential pressure, DC-link voltage, Current, DC power, Ambient temperature, PCB temperature, Running time in the last 24 h, Powered time since commissioning, Power-ups, Operation mode, flow limits, AutoNight, limiter flags, Starts in the last 24 h, Signal strength | Disabled by default; enable what you need. DC power and the temperature slots are decoded from captured traffic and marked unconfirmed. |
 | Energy | Lifetime energy kept by the pump; it survives power loss. |
 | Start count, Operating time since commissioning, Current run time | Diagnostic counters. The first two are lifetime values; the run time restarts at each power-up. |
 
@@ -101,10 +108,14 @@ costs nothing.
 
 The Bluetooth integration tracks the pump's advertisements (every ~8 s) to know it is powered
 and in range. While it is, and once the interval has elapsed, the integration connects, encrypts,
-reads the objects the pump supports, and disconnects. A timed-out reading is retried once on a
-fresh connection, and what has already been read is kept.
+reads the objects the pump supports, and disconnects. A reading that times out or loses the
+link is retried once on a fresh connection, from the object that failed. An optional value the
+pump did not give in a reading (alarms, statistics, energy and so on) shows as unavailable for
+that reading rather than keeping an older value, and an object that stays silent is skipped for
+a growing number of readings (1, 2, 4 … 32). A reading usually takes a few seconds; with
+retries it is capped at 75 s.
 
-If no advertisement arrives for about 40 s, or two readings in a row fail, entities become
+If no advertisement arrives for about 40 s, or three readings in a row fail, entities become
 unavailable; readings from before a power loss are not shown again. Each such episode logs one
 line at info level, and one when the pump is back.
 
@@ -141,9 +152,20 @@ actions:
   window: the proxy is too far or too slow. Move it closer, then retry.
 - **Repair "Pair again".** The pump repeatedly refused the encrypted link, which is expected
   when the proxy holding the bond was replaced or wiped. The integration polls every 10 minutes
-  until you re-pair, and the repair closes itself if a poll succeeds. A bond lost by the pump
-  itself has never been observed, and re-pairing has not yet been run on real hardware, so
-  please open an issue if you see this repair.
+  until you re-pair, and the repair closes itself if a poll succeeds. Only refusals through the
+  proxy that holds the bond count. A bond lost by the pump itself has never been observed, and
+  re-pairing has not yet been run on real hardware, so please open an issue if you see this
+  repair.
+- **Repair "… forgets the pairing".** The proxy was refused within half an hour of pairing,
+  after a good reading: ESP-IDF 5.5.6 (ESPHome 2026.10) proxies forget a pairing after one
+  connection. Change the proxy's build or reboot it, then *Reconfigure*. Diagnostics list each
+  proxy's model and ESPHome version.
+- **Repair "… cannot pair".** The proxy's ESPHome has no pairing support; update it.
+- **Repair "… has not answered for an hour".** The pump advertises but every reading fails:
+  close the Grundfos GO app, restart the proxy, or *Reconfigure*.
+- **Pairing reports "the pump paired but did not answer".** Some ALPHA3 pumps encrypt and then
+  never answer until they are reset to factory settings (esphome/issues#4736); an ALPHA2 GO has
+  not been seen doing it. Power-cycle the pump, then try again.
 - **Values look odd.** Download diagnostics (device page → ⋮ → Download diagnostics): it
   includes the raw frames, the proxies that hear the pump with signal strength, and which
   optional objects the pump answered. Attach it to an issue.
@@ -159,10 +181,9 @@ actions:
 - Only ESPHome Bluetooth proxies have been tested. A local Linux (BlueZ) adapter pairs since
   0.1.2 but has not been tested here, and a built-in adapter may drop polls, which show as
   gaps in the history. An ESPHome proxy near the pump is the supported route. Pairing through a
-  local adapter (setup, repair or *Reconfigure*) first deletes the bond the host holds, so a
-  *Reconfigure* abandoned before the button press leaves the pump unpaired until it is paired
-  again.
-- One pump family (ALPHA2 GO). Others are refused with their identity numbers in the message.
+  local adapter keeps the bond the host holds unless the pump refuses it during the button
+  window, so an abandoned *Reconfigure* leaves a working bond alone.
+- One pump family (ALPHA2 GO). Adding another by hand reports its identity numbers.
 - The bond lives on the proxy that paired (see above).
 - The Grundfos GO app and Home Assistant cannot be connected at the same time.
 - Several decoded fields are unconfirmed and labelled so.

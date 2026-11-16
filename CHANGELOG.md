@@ -4,6 +4,60 @@ All notable changes to this project are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses
 [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+Needs grundfos-ble 0.2.0.
+
+### Added
+
+- Repair issues for a proxy that forgets its pairing right after making it (ESP-IDF 5.5.6,
+  ESPHome 2026.10), for a proxy whose ESPHome cannot pair, and for an hour of failed readings
+  while the pump is heard. Each closes after the next good reading. A forgetful proxy no longer
+  sends you round the "pair again" loop every few minutes.
+- Diagnostics list each proxy's model and firmware version, and what the last reading read.
+- Adding an unsupported Grundfos pump by hand now reports its family and type numbers, as the
+  README promised; automatic discovery cannot show them.
+- Removing the entry offers the pump for discovery again.
+
+### Changed
+
+- **The "Shaft power" sensor is now "DC power"** (`dc_power`). The value is probably the DC
+  power the Grundfos GO app shows. The entity keeps its ID and history.
+- Entities go unavailable after three failed readings in a row instead of two.
+- A refusal counts towards "pair again" only when the attempt went through the proxy that holds
+  the pairing, as Home Assistant reports it per attempt, not whenever that proxy hears the pump.
+- Re-pairing keeps the optional objects the pump had unless it now says it lacks them, and
+  removes only those entities; a corrupted or silent answer no longer drops entities.
+- Pairing records the proxy the pairing connection really used.
+- A pump is judged present by adverts from proxies that can connect to it.
+- Development: the tests run on Home Assistant 2026.11 with `pytest-homeassistant`, which
+  replaces the deprecated `pytest-homeassistant-custom-component`. CI pins its actions to commit
+  SHAs, audits the workflows with zizmor and gets weekly Dependabot updates after a week's
+  cooldown.
+- On a local BlueZ adapter, the host's bond is removed only when the pump refuses it inside the
+  button window, and then pairing is retried once. An abandoned *Reconfigure* no longer strands
+  the adapter.
+
+### Fixed
+
+- An optional value (alarms, warnings, operation, limiters, statistics, temperatures, energy)
+  that a reading could not get kept showing the previous reading's value as current. It now
+  shows as unavailable for that reading. A lost link during these reads is retried once on a
+  fresh connection from the object that failed, and an object that stays silent is skipped
+  for 1, 2, 4 … 32 readings instead of costing every later object its turn.
+- Pairing failed, after the pump had already bonded, when one optional object did not answer
+  during the capability probe; each retry added another bond. The probe now goes on without it.
+- A timeout after a successful pairing was reported as a missed button window. It is retried
+  once on a fresh connection and otherwise reported as "the pump paired but did not answer".
+- A pairing flow could start while a reading still held the pump's link; it now waits for the
+  reading to finish. A reading still running at unload is cancelled, so it can no longer start a
+  re-pairing flow for an entry that is gone.
+- Diagnostics could include the names of your Bluetooth proxies through Home Assistant's
+  reachability text. They are replaced by redacted addresses.
+- Every connection waits 0.5 s after subscribing, through proxies too; ESPHome measured lost
+  first requests without it (grundfos-ble 0.2.0).
+- The README said readings take under five seconds and named `grundfos-ble` 0.1.0.
+
 ## [0.1.4] - 2026-11-15
 
 ### Fixed
