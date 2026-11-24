@@ -10,10 +10,8 @@ from typing import Any
 from unittest.mock import patch
 
 from bluetooth_data_tools import monotonic_time_coarse
-from homeassistant import config_entries
 from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
-from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
@@ -48,7 +46,6 @@ from .conftest import (
     PROXY_SOURCE,
     PUMP_ADDRESS,
     PUMP_NAME,
-    SERVICE_DATA_OTHER_PUMP,
     FakeProxyScanner,
     ReplayTransport,
 )
@@ -345,19 +342,6 @@ async def test_diagnostics_name_no_scanner_and_not_the_pump(
 
 
 # --- E3, E6 and the registry ---
-
-
-async def test_the_user_step_names_an_unsupported_pump(
-    hass: HomeAssistant, proxy: FakeProxyScanner
-) -> None:
-    proxy.inject("AA:BB:CC:DD:56:78", name="SCALA1", service_data=SERVICE_DATA_OTHER_PUMP)
-    await hass.async_block_till_done()
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "unsupported_model"
-    assert result["description_placeholders"] == {"family": "57", "type": "7"}
 
 
 async def test_removing_the_entry_offers_the_pump_again(

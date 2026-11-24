@@ -6,6 +6,16 @@ Notable changes, newest first. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A pump this integration can't read yet can be added from *Add integration* for data
+  collection. It pairs once, records what the pump answers (for up to a minute), creates no
+  sensors, and raises a notice explaining how to send the diagnostics file in an issue. When an
+  update supports the pump, the notice offers to set it up with its sensors, using the pairing
+  it already has.
+- Diagnostics include the frames recorded while pairing, in grundfos-ble's fixture format,
+  without the pump's address, serial number or name.
+
 ### Changed
 
 - The README is rewritten in plainer English, along with this changelog and the support notes.

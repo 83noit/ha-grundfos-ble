@@ -9,8 +9,12 @@
           "address": "Pump"
         },
         "data_description": {
-          "address": "Grundfos pumps that a Bluetooth proxy able to make connections hears right now. A pump of a model this integration does not support yet is reported with its family and type numbers instead."
+          "address": "Grundfos pumps that a Bluetooth proxy able to make connections hears right now. A pump of a model this integration doesn't support yet is listed with its family and type numbers: adding it pairs with it and records what it says, for a request to support it."
         }
+      },
+      "collect_confirm": {
+        "title": "Add {name} for data collection",
+        "description": "This integration can't read this pump yet. Adding it pairs with the pump once and records what it answers, which is what's needed to support it. No sensors are created and nothing is written to the pump.\n\nAfterwards, open the integration's entry for the pump and choose **Download diagnostics**, then attach the file to a GitHub issue. The file leaves out the pump's Bluetooth address, serial number and name.\n\nSubmit to continue to pairing."
       },
       "bluetooth_confirm": {
         "title": "Pair with {name}",
@@ -46,7 +50,7 @@
       "already_in_progress": "Configuration flow is already in progress",
       "no_devices_found": "No devices found on the network",
       "not_supported": "This Bluetooth device does not advertise like a Grundfos pump.",
-      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet. Please open an issue with these numbers.",
+      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet. Add it from Add integration to record what it says, then open an issue with the diagnostics.",
       "reauth_successful": "Re-authentication was successful",
       "reconfigure_successful": "Re-configuration was successful"
     }
@@ -336,6 +340,26 @@
     "unreachable": {
       "title": "{name} has not answered for an hour",
       "description": "The pump is advertising and a connectable proxy hears it, but every reading for an hour has failed (last error: {error}).\n\nLikely causes:\n- The Grundfos GO app is connected to the pump; close it.\n- The Bluetooth proxy needs a restart.\n- The pump no longer accepts the pairing; pair it again from the integration's Reconfigure menu.\n\nThis issue closes by itself after the next good reading."
+    },
+    "collect_only": {
+      "title": "{name} is added for data collection only",
+      "description": "This integration can't read this pump yet (family {family}, type {type}), so it has no sensors. The frames recorded while pairing are in its diagnostics.\n\nTo ask for support: go to Settings > Devices & services > Grundfos Bluetooth, open the menu on {name}, choose **Download diagnostics**, and attach the file to a new GitHub issue (Learn more). The file leaves out the pump's Bluetooth address, serial number and name.\n\nOnce an update supports the pump, this notice changes and offers to set it up with its sensors."
+    },
+    "now_supported": {
+      "title": "{name} is now supported",
+      "fix_flow": {
+        "step": {
+          "confirm": {
+            "title": "Read {name} as a supported pump",
+            "description": "This version of the integration can read this pump. Submit to connect to it with the existing pairing, read what it offers and add its sensors. No button press is needed.\n\nIf the pump no longer accepts that pairing, choose **Reconfigure** on it instead and pair again."
+          }
+        },
+        "error": {
+          "needs_pairing": "The pump refused the existing pairing. Close this, then choose Reconfigure on {name} and press the pump's Bluetooth button.",
+          "cannot_connect": "Could not read the pump: {reason}",
+          "still_unsupported": "The pump reported an identity this version can't read after all. Please open an issue with its diagnostics."
+        }
+      }
     }
   }
 }

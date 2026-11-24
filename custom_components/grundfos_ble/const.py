@@ -14,6 +14,12 @@ CONF_UNIT_NAME: Final = "unit_name"
 CONF_CAPABILITIES: Final = "capabilities"
 CONF_PAIRED_SOURCE: Final = "paired_source"
 CONF_PAIRED_AT: Final = "paired_at"
+CONF_COLLECT_ONLY: Final = "collect_only"
+"""Set on an entry for a pump this integration can't read yet: it only holds a capture."""
+CONF_FAMILY: Final = "family"
+CONF_TYPE: Final = "type"
+CONF_CAPTURE: Final = "capture"
+"""Frames recorded while pairing, in grundfos-ble's fixture format (one string per line)."""
 
 OPT_SCAN_INTERVAL: Final = "scan_interval"
 DEFAULT_SCAN_INTERVAL: Final = 60
@@ -27,6 +33,8 @@ BUTTON_FLAG_MAX_AGE: Final = 1.0
 BUTTON_WINDOW: Final = 4.0
 """Seconds the pump shows the button flag after a press; it accepts pairing inside that."""
 PAIR_CONNECT_TIMEOUT: Final = 5.0
+CAPTURE_TIMEOUT: Final = 60.0
+"""Most seconds spent recording an unsupported pump while pairing; what was recorded is kept."""
 
 MAX_PAIRING_FAILURES: Final = 3
 """Consecutive polls refused at the encryption step before a re-pairing flow is raised."""
@@ -61,6 +69,9 @@ MAX_SILENT_BACKOFF: Final = 32
 ISSUE_PROXY_FORGETS_BOND: Final = "proxy_forgets_bond"
 ISSUE_PROXY_CANNOT_PAIR: Final = "proxy_cannot_pair"
 ISSUE_UNREACHABLE: Final = "unreachable"
+ISSUE_COLLECT_ONLY: Final = "collect_only"
+ISSUE_NOW_SUPPORTED: Final = "now_supported"
+ISSUES_URL: Final = "https://github.com/83noit/ha-grundfos-ble/issues"
 
 CAP_OPERATION: Final = "operation"
 CAP_ALARMS: Final = "alarms"

@@ -24,9 +24,10 @@ This project has nothing to do with Grundfos.
 ## What you need
 
 - A Grundfos ALPHA2 GO. Other Grundfos Bluetooth pumps, like the ALPHA3, ALPHA HWR and SCALA1,
-  talk the same way but aren't supported yet. If you add one by hand from *Add integration*,
-  it tells you the family and type numbers it saw, so support can be added. Automatic
-  discovery just stays quiet about them.
+  talk the same way but aren't supported yet. You can still add one from *Add integration*, for
+  data collection: it pairs once, records what the pump answers and creates no sensors.
+  Download its diagnostics and attach them to an issue so support can be added. Automatic
+  discovery stays quiet about these pumps.
 - Home Assistant 2026.11 or newer.
 - **A Bluetooth proxy that can make connections, within a few metres of the pump.** An ESPHome
   device with `bluetooth_proxy:` works (it makes connections unless you turn that off). The
@@ -195,7 +196,8 @@ actions:
   as gaps in the history. An ESPHome proxy near the pump is the way to go. When you pair
   through a local adapter, it keeps the bond it already has unless the pump turns that bond
   down during the button window, so a *Reconfigure* you give up on leaves a working bond alone.
-- One kind of pump (ALPHA2 GO). Adding a different one by hand tells you its identity numbers.
+- One kind of pump (ALPHA2 GO). Any other one can only be added for data collection (see What
+  you need).
 - The bond lives on the proxy that paired (see above).
 - The Grundfos GO app and Home Assistant can't both be connected at once.
 - Some decoded values aren't confirmed yet, and they're labelled that way.

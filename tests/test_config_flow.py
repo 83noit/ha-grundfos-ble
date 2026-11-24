@@ -279,7 +279,9 @@ async def test_user_flow_lists_discovered_pumps(
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
     options = result["data_schema"].schema[CONF_ADDRESS].container
-    assert list(options) == [PUMP_ADDRESS]
+    assert list(options) == [PUMP_ADDRESS, "AA:BB:CC:DD:EE:FF"]
+    assert "not supported yet (family 57, type 7)" in options["AA:BB:CC:DD:EE:FF"]
+    assert "not supported" not in options[PUMP_ADDRESS]
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_ADDRESS: PUMP_ADDRESS}
     )

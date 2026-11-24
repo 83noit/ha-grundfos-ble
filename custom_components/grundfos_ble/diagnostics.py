@@ -11,7 +11,15 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
-from .const import CONF_PAIRED_SOURCE, CONF_SERIAL_NUMBER, CONF_UNIT_NAME
+from grundfos_ble import GRUNDFOS_SERVICE_UUID
+
+from .const import (
+    CONF_CAPTURE,
+    CONF_COLLECT_ONLY,
+    CONF_PAIRED_SOURCE,
+    CONF_SERIAL_NUMBER,
+    CONF_UNIT_NAME,
+)
 from .coordinator import GrundfosConfigEntry
 from .redact import REDACTED, redact_address, scrub, scrub_scanners
 
@@ -74,10 +82,14 @@ def _plain(value: Any) -> Any:
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: GrundfosConfigEntry
 ) -> dict[str, Any]:
-    """Return diagnostics for a config entry."""
-    coordinator = entry.runtime_data
+    """Return diagnostics for a config entry.
+
+    ``capture`` holds the frames recorded while pairing, in grundfos-ble's fixture format; for a
+    pump this integration can't read yet it is the whole point of the entry.
+    """
     address: str = entry.data[CONF_ADDRESS]
     entry_data = async_redact_data(dict(entry.data), TO_REDACT)
+    capture = entry_data.pop(CONF_CAPTURE, None)
     entry_data[CONF_ADDRESS] = redact_address(address)
     if isinstance(paired := entry_data.get(CONF_PAIRED_SOURCE), str):
         entry_data[CONF_PAIRED_SOURCE] = scrub(paired)
@@ -91,6 +103,18 @@ async def async_get_config_entry_diagnostics(
         }
         for device in bluetooth.async_scanner_devices_by_address(hass, address, connectable=False)
     ]
+    if entry.data.get(CONF_COLLECT_ONLY):
+        info = bluetooth.async_last_service_info(hass, address, connectable=False)
+        raw = None if info is None else info.service_data.get(GRUNDFOS_SERVICE_UUID)
+        return {
+            "entry": {"data": entry_data, "options": dict(entry.options)},
+            "bluetooth": {
+                "scanners_hearing_the_pump": scanners,
+                "advertisement": None if raw is None else raw.hex(" "),
+            },
+            "capture": capture,
+        }
+    coordinator = entry.runtime_data
     advertisement = coordinator.advertisement
     return {
         "entry": {"data": entry_data, "options": dict(entry.options)},
@@ -128,4 +152,5 @@ async def async_get_config_entry_diagnostics(
         },
         "data": _plain(coordinator.data),
         "last_frames": [{"direction": d, "frame": f} for d, f in coordinator.last_frames],
+        "capture": capture,
     }

@@ -41,14 +41,18 @@ import probatio
 from grundfos_ble import (
     GRUNDFOS_SERVICE_UUID,
     BleTransport,
+    Capture,
     ConnectionLost,
     GrundfosError,
     GrundfosPump,
+    Identity,
     PairingRequired,
     ProbeResult,
+    Recorder,
     RequestTimeout,
     parse_advertisement,
     profile_for,
+    record_capture,
     remove_bluez_bond,
 )
 
@@ -56,13 +60,18 @@ from .const import (
     BUTTON_FLAG_MAX_AGE,
     BUTTON_WAIT_TIMEOUT,
     BUTTON_WINDOW,
+    CAPTURE_TIMEOUT,
     CONF_BLE_SOFTWARE_VERSION,
     CONF_CAPABILITIES,
+    CONF_CAPTURE,
+    CONF_COLLECT_ONLY,
+    CONF_FAMILY,
     CONF_MODEL,
     CONF_PAIRED_AT,
     CONF_PAIRED_SOURCE,
     CONF_SERIAL_NUMBER,
     CONF_SOFTWARE_VERSION,
+    CONF_TYPE,
     CONF_UNIT_NAME,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -93,6 +102,34 @@ def _is_grundfos(service_info: BluetoothServiceInfoBleak) -> bool:
         advertisement is not None
         and profile_for(advertisement.family, advertisement.type) is not None
     )
+
+
+async def _async_capture(pump: GrundfosPump, recorder: Recorder) -> ProbeResult | None:
+    """Record everything an unsupported pump answers, for at most CAPTURE_TIMEOUT seconds.
+
+    A pump that keeps the link but never answers would otherwise hold the pairing screen for
+    one request timeout per object. Whatever was recorded before the limit is kept.
+    """
+    try:
+        async with asyncio.timeout(CAPTURE_TIMEOUT):
+            return (await record_capture(pump, recorder)).probe
+    except TimeoutError:
+        _LOGGER.info(
+            "Capture stopped after %.0f s with %d exchanges",
+            CAPTURE_TIMEOUT,
+            len(recorder.exchanges),
+        )
+        return None
+
+
+def capture_lines(identity: Identity, recorder: Recorder) -> list[str]:
+    """Render the recorder's exchanges in the fixture format, as the entry stores them."""
+    stamp = dt_util.now().isoformat(timespec="seconds")
+    header = (
+        f"Recorded from {identity.model or 'a Grundfos pump'} (family {identity.family}, type "
+        f"{identity.type}) on {stamp} by Home Assistant."
+    )
+    return Capture(identity, {}, None, tuple(recorder.exchanges)).fixture_lines(header)
 
 
 def _connectable_scanners(hass: HomeAssistant, address: str) -> list[str]:
@@ -141,6 +178,30 @@ def _capabilities(probe: ProbeResult, stored: list[str] | None) -> list[str]:
     return sorted(kept | probe.supported)
 
 
+def supported_entry_data(
+    identity: Identity,
+    probe: ProbeResult,
+    address: str,
+    source: str,
+    stored: list[str] | None,
+    capture: list[str],
+) -> dict[str, Any]:
+    """Entry data for a pump this integration reads, from its identity and probe."""
+    assert identity.profile is not None
+    return {
+        CONF_CAPTURE: capture,
+        CONF_ADDRESS: address,
+        CONF_MODEL: identity.model or identity.profile.name,
+        CONF_SERIAL_NUMBER: identity.serial_number,
+        CONF_SOFTWARE_VERSION: identity.software_version,
+        CONF_BLE_SOFTWARE_VERSION: identity.ble_software_version,
+        CONF_UNIT_NAME: identity.unit_name,
+        CONF_CAPABILITIES: _capabilities(probe, stored),
+        CONF_PAIRED_SOURCE: source,
+        CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
+    }
+
+
 def _likely_path(hass: HomeAssistant, address: str) -> str | None:
     """Return the proxy habluetooth will most likely use: the strongest connectable one."""
     devices = bluetooth.async_scanner_devices_by_address(hass, address, connectable=True)
@@ -163,6 +224,9 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         self._pair_task: asyncio.Task[PairOutcome] | None = None
         self._outcome: PairOutcome | None = None
         self._entry: ConfigEntry | None = None
+        self._collect = False
+        """True when the user chose to add an unsupported pump for data collection."""
+        self._unsupported: set[str] = set()
 
     @staticmethod
     @callback
@@ -206,40 +270,45 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
             self._address = address
             self._name = info.name or address
             self.context["title_placeholders"] = {"name": self._name}
+            if address in self._unsupported:
+                self._collect = True
+                return await self.async_step_collect_confirm()
             return await self.async_step_bluetooth_confirm()
 
         current = self._async_current_ids(include_ignore=False)
-        unsupported: dict[str, str] | None = None
+        labels: dict[str, str] = {}
         for info in bluetooth.async_discovered_service_info(self.hass, connectable=True):
             if info.address in current:
                 continue
-            if _is_grundfos(info):
-                self._discovered[info.address] = info
-            elif (
-                advertisement := parse_advertisement(
-                    info.service_data.get(GRUNDFOS_SERVICE_UUID, b"")
+            advertisement = parse_advertisement(info.service_data.get(GRUNDFOS_SERVICE_UUID, b""))
+            if advertisement is None:
+                continue
+            self._discovered[info.address] = info
+            label = f"{info.name or info.address} ({info.address})"
+            if profile_for(advertisement.family, advertisement.type) is None:
+                # Offered for data collection; a discovery flow would abort unseen instead.
+                self._unsupported.add(info.address)
+                label += (
+                    f", not supported yet (family {advertisement.family}, "
+                    f"type {advertisement.type}): add it to collect data"
                 )
-            ) is not None:
-                unsupported = {"family": str(advertisement.family), "type": str(advertisement.type)}
-        if not self._discovered:
-            if unsupported is not None:
-                # A discovery flow that aborts is never shown; here the user sees the numbers.
-                return self.async_abort(
-                    reason="unsupported_model", description_placeholders=unsupported
-                )
+            labels[info.address] = label
+        if not labels:
             return self.async_abort(reason="no_devices_found")
         return self.async_show_form(
             step_id="user",
-            data_schema=probatio.Schema(
-                {
-                    probatio.Required(CONF_ADDRESS): probatio.In(
-                        {
-                            address: f"{info.name or address} ({address})"
-                            for address, info in self._discovered.items()
-                        }
-                    )
-                }
-            ),
+            data_schema=probatio.Schema({probatio.Required(CONF_ADDRESS): probatio.In(labels)}),
+        )
+
+    async def async_step_collect_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Explain what adding an unsupported pump does before pairing with it."""
+        if user_input is not None:
+            return await self.async_step_bluetooth_confirm()
+        return self.async_show_form(
+            step_id="collect_confirm",
+            description_placeholders={"name": self._name or self._address or ""},
         )
 
     async def async_step_bluetooth_confirm(
@@ -352,7 +421,8 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
                 self.hass, address, connectable=True
             ),
         )
-        pump = GrundfosPump(transport)
+        recorder = Recorder(transport)
+        pump = GrundfosPump(recorder)
         started = time.monotonic()
 
         def source() -> str:
@@ -386,9 +456,16 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
             # Paired: from here a timeout is the pump not answering, not a missed window. One
             # more try on a fresh link (with the new bond) before giving up.
             for final_try in (False, True):
+                recorder.exchanges.clear()
                 try:
+                    recorder.recording = False  # the serial and the owner's name stay out
                     identity = await pump.read_identity()
-                    probe = await pump.probe_capabilities()
+                    if identity.profile is None and self._collect:
+                        probe = await _async_capture(pump, recorder)
+                    else:
+                        recorder.recording = True
+                        recorder.label = "probe"
+                        probe = await pump.probe_capabilities()
                     break
                 except (ConnectionLost, RequestTimeout) as err:
                     _LOGGER.debug("Paired via %s but no answer: %s", logged(), scrub(str(err)))
@@ -410,11 +487,38 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         finally:
             await transport.disconnect()
 
+        lines = capture_lines(identity, recorder)
         if identity.profile is None:
-            return PairOutcome(
-                error="unsupported_model",
-                placeholders={"family": str(identity.family), "type": str(identity.type)},
+            if not self._collect:
+                return PairOutcome(
+                    error="unsupported_model",
+                    placeholders={"family": str(identity.family), "type": str(identity.type)},
+                )
+            _LOGGER.info(
+                "Paired with %s via %s for data collection (family %s, type %s); %d exchanges",
+                redact_address(address),
+                logged(),
+                identity.family,
+                identity.type,
+                len(recorder.exchanges),
             )
+            return PairOutcome(
+                name=self._name,
+                data={
+                    CONF_ADDRESS: address,
+                    CONF_COLLECT_ONLY: True,
+                    CONF_FAMILY: identity.family,
+                    CONF_TYPE: identity.type,
+                    CONF_MODEL: identity.model
+                    or f"Grundfos family {identity.family} type {identity.type}",
+                    CONF_SOFTWARE_VERSION: identity.software_version,
+                    CONF_BLE_SOFTWARE_VERSION: identity.ble_software_version,
+                    CONF_CAPTURE: lines,
+                    CONF_PAIRED_SOURCE: source(),
+                    CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
+                },
+            )
+        assert probe is not None  # only a collect-only capture can end without a probe
         _LOGGER.info(
             "Paired with %s via %s in %.1fs; optional objects: %s",
             redact_address(address),
@@ -425,19 +529,10 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         for key, reason in probe.errors.items():
             _LOGGER.debug("Object %s not available: %s", key, reason)
         stored = None if self._entry is None else self._entry.data.get(CONF_CAPABILITIES)
+        data = supported_entry_data(identity, probe, address, source(), stored, lines)
         return PairOutcome(
             name=identity.unit_name or self._name,
-            data={
-                CONF_ADDRESS: address,
-                CONF_MODEL: identity.model or identity.profile.name,
-                CONF_SERIAL_NUMBER: identity.serial_number,
-                CONF_SOFTWARE_VERSION: identity.software_version,
-                CONF_BLE_SOFTWARE_VERSION: identity.ble_software_version,
-                CONF_UNIT_NAME: identity.unit_name,
-                CONF_CAPABILITIES: _capabilities(probe, stored),
-                CONF_PAIRED_SOURCE: source(),
-                CONF_PAIRED_AT: dt_util.utcnow().isoformat(),
-            },
+            data={CONF_COLLECT_ONLY: False, **data} if self._collect else data,
         )
 
     async def _async_connect_for_pairing(self, transport: BleTransport, address: str) -> None:
@@ -471,6 +566,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         """Start re-pairing after the pump refused encryption (no usable bond)."""
         self._entry = self._get_reauth_entry()
         self._address = self._entry.data[CONF_ADDRESS]
+        self._collect = bool(self._entry.data.get(CONF_COLLECT_ONLY))
         self._name = self._entry.title
         return await self.async_step_reauth_confirm()
 
@@ -487,6 +583,7 @@ class GrundfosConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._entry is None:
             self._entry = self._get_reconfigure_entry()
             self._address = self._entry.data[CONF_ADDRESS]
+            self._collect = bool(self._entry.data.get(CONF_COLLECT_ONLY))
             self._name = self._entry.title
         return await self._async_step_repair("reconfigure", user_input)
 
