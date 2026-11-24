@@ -6,6 +6,11 @@ Notable changes, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.3.0b1] - 2026-11-24
+
+Beta, so owners of a pump this integration doesn't support yet can record it from Home
+Assistant. Needs grundfos-ble 0.5.0b1.
+
 ### Added
 
 - A pump this integration can't read yet can be added from *Add integration* for data
@@ -206,7 +211,8 @@ Beta, for testing on real hardware before 0.2.0. Needs grundfos-ble 0.2.0.
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
-[Unreleased]: https://github.com/83noit/ha-grundfos-ble/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/83noit/ha-grundfos-ble/compare/v0.3.0b1...HEAD
+[0.3.0b1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.3.0b1
 [0.2.1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.1
 [0.2.1b1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.1b1
 [0.2.0]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.0
