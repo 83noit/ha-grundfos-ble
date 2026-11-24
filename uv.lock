@@ -1206,15 +1206,15 @@ wheels = [
 
 [[package]]
 name = "grundfos-ble"
-version = "0.5.0b1"
+version = "0.5.0b2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "ble-bond" },
     { name = "bleak" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/fd/2e/f36b9439d8b2c2343fa71895d2b0159d644260098d0ae5d34d160cc9435b/grundfos_ble-0.5.0b1.tar.gz", hash = "sha256:b9b0354edcedf420097fd3e774eab3a911cb4634d55e26ea7465022077971a34", size = 80627, upload-time = "2026-11-24T06:21:34.317Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/19/dc/f48dd1aeb7636e731239b2efb882b470f583929f5b93884e19a332d74055/grundfos_ble-0.5.0b2.tar.gz", hash = "sha256:826746f3791764d71b646097176940ff5668a2755ee6ddadba08354e323ccb4c", size = 83184, upload-time = "2026-11-24T18:26:18.624Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/4e/bc/a772dddbd13c39a0a22af5f389950b4d71b2fba77012509ce3104a450dc1/grundfos_ble-0.5.0b1-py3-none-any.whl", hash = "sha256:9c2c29783ff02aa649ebddbaa33cf264b4ceeff39b99f4f7e5211bdee48c13ec", size = 59055, upload-time = "2026-11-24T06:21:33.3Z" },
+    { url = "https://files.pythonhosted.org/packages/af/b7/a9cb8fd6691674a29952f5b9d45967921a822e833f3cca67a3b4bf3e30cc/grundfos_ble-0.5.0b2-py3-none-any.whl", hash = "sha256:815480f2f15e6b11bd7ca65ede6778b396cd4b69f148ab1328d2664187b72149", size = 61156, upload-time = "2026-11-24T18:26:17.391Z" },
 ]
 
 [[package]]
@@ -1228,7 +1228,7 @@ wheels = [
 
 [[package]]
 name = "ha-grundfos-ble"
-version = "0.3.0b1"
+version = "0.3.0b2"
 source = { virtual = "." }
 
 [package.dev-dependencies]
@@ -1260,7 +1260,7 @@ dev = [
     { name = "bluetooth-auto-recovery" },
     { name = "bluetooth-data-tools" },
     { name = "dbus-fast" },
-    { name = "grundfos-ble", specifier = "==0.5.0b1" },
+    { name = "grundfos-ble", specifier = "==0.5.0b2" },
     { name = "habluetooth" },
     { name = "mypy", specifier = ">=1.19" },
     { name = "pytest-cov", specifier = ">=7" },
