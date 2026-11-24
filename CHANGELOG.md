@@ -11,6 +11,8 @@ Notable changes, newest first. The format follows
 - The README is rewritten in plainer English, along with this changelog and the support notes.
   On the way, the support notes now list `ble_bond` in the debug logging, and the README names
   `pytest-homeassistant`, which the tests have used since 0.2.0.
+- Needs grundfos-ble 0.4.0, which adds a command line the integration doesn't use. Nothing
+  changes for you.
 
 ## [0.2.1] - 2026-11-16
 
