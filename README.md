@@ -157,12 +157,12 @@ actions:
   move one closer.
 - **"The pump refused pairing … took N s"** The connection arrived after the three-second
   window: the proxy is too far away or too slow. Move it closer, then try again.
-- **Repair "Pair again".** The pump kept turning down the encrypted connection. That's
-  expected if the proxy holding the bond was replaced or wiped. Until you pair again, the
-  integration polls every 10 minutes, and the repair closes itself if a poll works. Only
-  refusals through the proxy that holds the bond count. Nobody has seen the pump lose a bond by
-  itself, and re-pairing hasn't been tried on real hardware yet, so please open an issue if you
-  see this repair.
+- **"Pair … again" under Settings → Devices & services.** The pump kept turning down the
+  encrypted connection. That's expected if the proxy holding the bond was replaced or wiped.
+  Until you pair again, the integration polls every 10 minutes, and the request closes itself
+  if a poll works. Only refusals through the proxy that holds the bond count. Nobody has seen
+  the pump lose a bond by itself, and re-pairing hasn't been tried on real hardware yet, so
+  please open an issue if you see this.
 - **Repair "… forgets the pairing".** The proxy got turned away within half an hour of pairing,
   after a good reading. ESP-IDF 5.5.6 (ESPHome 2026.10) proxies forget a pairing after one
   connection. Build the proxy with a different version, or reboot it, then *Reconfigure*. The

@@ -5,12 +5,18 @@ This integration reads the Grundfos pumps it has a description for. Today that's
 model keeps its values in its own places, and a guess could show wrong values. So before a
 model is added, I need a recording of what a real one answers.
 
-Recording one takes a few minutes. There are two ways to do it.
+Someone may have asked for your model already: see the
+[existing pump requests](https://github.com/83noit/ha-grundfos-ble/issues?q=is%3Aissue%20label%3A%22pump%20request%22).
+If yours is there, add your recording to that issue instead of opening a new one.
+
+Recording a pump takes a few minutes. There are two ways to do it.
 
 ## The easy way: from Home Assistant
 
-Needs ha-grundfos-ble 0.3.0b1 or newer. While it's a beta, turn on *Show beta versions* for this
-repository in HACS to see it.
+Needs ha-grundfos-ble 0.3.0b1 or newer. While it's a beta, install it on its own: in the
+Marketplace (Settings → Marketplace, formerly HACS), open Grundfos Bluetooth, choose ⋮ →
+*Install another version*, pick 0.3.0b1 and restart Home Assistant. Turning on beta versions
+instead would also bring every later beta.
 
 1. Go to Settings → Devices & services → *Add integration* → **Grundfos Bluetooth**.
 2. Your pump appears in the list as *not supported yet (family X, type Y): add it to collect
@@ -44,7 +50,7 @@ the same recording from a computer with Bluetooth near the pump:
 ```
 python3 -m venv grundfos-venv
 source grundfos-venv/bin/activate      # Windows: grundfos-venv\Scripts\activate
-pip install grundfos-ble
+pip install "grundfos-ble>=0.5.0b1"
 
 grundfos-ble scan
 grundfos-ble pair <address>            # press the pump's Bluetooth button when asked
@@ -53,8 +59,9 @@ grundfos-ble probe <address>
 grundfos-ble capture <address> my-pump.txt
 ```
 
-If you have [uv](https://docs.astral.sh/uv/), `uvx grundfos-ble <command>` does the same without
-a venv.
+If you have [uv](https://docs.astral.sh/uv/), `uvx --from "grundfos-ble>=0.5.0b1" grundfos-ble
+<command>` does the same without a venv. (Version 0.4.0 works too, but there the flag is
+`--include-serial` and the pump's name isn't left out.)
 
 Attach `my-pump.txt` and paste what the other commands print. Before pasting, **replace your
 pump's Bluetooth address everywhere** with something like `XX:XX:XX:XX:XX:XX`, including in the
@@ -72,4 +79,5 @@ Assistant.
 - The model as printed on the pump's label (for example *ALPHA2 GO 25-75* or *ALPHA 15-58F*),
   and the country you bought it in: some models differ by region.
 
-The new-pump request form asks for all of this.
+The [new-pump request form](https://github.com/83noit/ha-grundfos-ble/issues/new?template=new_pump.yml)
+asks for all of this.

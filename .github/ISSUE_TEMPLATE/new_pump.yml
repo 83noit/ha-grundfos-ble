@@ -1,5 +1,7 @@
 name: Support a new pump
 description: Ask for a Grundfos pump this integration doesn't read yet, with a recording of it.
+type: Feature
+labels: ["pump request"]
 body:
   - type: markdown
     attributes:
