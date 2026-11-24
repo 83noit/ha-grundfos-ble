@@ -50,7 +50,7 @@
       "already_in_progress": "Configuration flow is already in progress",
       "no_devices_found": "No devices found on the network",
       "not_supported": "This Bluetooth device does not advertise like a Grundfos pump.",
-      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet. Add it from Add integration to record what it says, then open an issue with the diagnostics.",
+      "unsupported_model": "This Grundfos device (family {family}, type {type}) is not supported yet. Add it from Add integration to record what it says, then send the recording: see docs/new-pump.md in the integration's repository.",
       "reauth_successful": "Re-authentication was successful",
       "reconfigure_successful": "Re-configuration was successful"
     }
@@ -343,7 +343,7 @@
     },
     "collect_only": {
       "title": "{name} is added for data collection only",
-      "description": "This integration can't read this pump yet (family {family}, type {type}), so it has no sensors. The frames recorded while pairing are in its diagnostics.\n\nTo ask for support: go to Settings > Devices & services > Grundfos Bluetooth, open the menu on {name}, choose **Download diagnostics**, and attach the file to a new GitHub issue (Learn more). The file leaves out the pump's Bluetooth address, serial number and name.\n\nOnce an update supports the pump, this notice changes and offers to set it up with its sensors."
+      "description": "This integration can't read this pump yet (family {family}, type {type}), so it has no sensors. The frames recorded while pairing are in its diagnostics.\n\nTo ask for support: go to Settings > Devices & services > Grundfos Bluetooth, open the menu on {name}, choose **Download diagnostics**, and attach the file to a new-pump request on GitHub. Learn more explains each step. The file leaves out the pump's Bluetooth address, serial number and name.\n\nOnce an update supports the pump, this notice changes and offers to set it up with its sensors."
     },
     "now_supported": {
       "title": "{name} is now supported",

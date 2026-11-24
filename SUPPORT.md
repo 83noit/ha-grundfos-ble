@@ -30,6 +30,11 @@ what your logs and diagnostics show, and debugging through rounds of issue comme
 for both of us and mostly guesswork for me. I'll fix what the evidence points to, but I can't
 promise more than that.
 
+## Asking for a new pump
+
+Follow [Asking for a new pump](docs/new-pump.md): it explains how to record your pump, from
+Home Assistant or from a computer, and the request form asks for the rest.
+
 ## Reporting a problem
 
 - Check the open issues first. If one matches your setup, add to it rather than opening a new

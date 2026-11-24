@@ -20,7 +20,7 @@ from .const import (
     DOMAIN,
     ISSUE_COLLECT_ONLY,
     ISSUE_NOW_SUPPORTED,
-    ISSUES_URL,
+    NEW_PUMP_URL,
 )
 from .coordinator import GrundfosConfigEntry, GrundfosCoordinator
 
@@ -101,7 +101,7 @@ def _async_raise_collect_issue(hass: HomeAssistant, entry: GrundfosConfigEntry) 
         data={"entry_id": entry.entry_id},
         is_fixable=supported,
         is_persistent=False,
-        learn_more_url=ISSUES_URL,
+        learn_more_url=NEW_PUMP_URL,
         severity=ir.IssueSeverity.WARNING,
         translation_key=ISSUE_NOW_SUPPORTED if supported else ISSUE_COLLECT_ONLY,
         translation_placeholders={"name": entry.title, "family": str(family), "type": str(type_)},

@@ -1,0 +1,54 @@
+name: Support a new pump
+description: Ask for a Grundfos pump this integration doesn't read yet, with a recording of it.
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Thanks for helping add a pump. Please follow
+        [Asking for a new pump](https://github.com/83noit/ha-grundfos-ble/blob/main/docs/new-pump.md)
+        first: it explains how to record the pump from Home Assistant or from a computer.
+  - type: input
+    id: model
+    attributes:
+      label: Pump model
+      description: As printed on the pump's label.
+      placeholder: "ALPHA 15-58F"
+    validations:
+      required: true
+  - type: input
+    id: identity
+    attributes:
+      label: Family and type numbers
+      description: Shown by Home Assistant ("not supported yet (family X, type Y)") or by `grundfos-ble scan`.
+      placeholder: "family 52, type 7"
+    validations:
+      required: true
+  - type: input
+    id: country
+    attributes:
+      label: Country where you bought it
+      placeholder: "Canada"
+  - type: textarea
+    id: recording
+    attributes:
+      label: Recording
+      description: |-
+        Drag the files here.
+
+        **From Home Assistant:** the diagnostics file (Settings → Devices & services → Grundfos Bluetooth → ⋮ on the pump → Download diagnostics).
+
+        **From the command line:** the `capture` file, and the output of `scan`, `pair`, `info` and `probe` pasted below.
+    validations:
+      required: true
+  - type: textarea
+    id: go-app
+    attributes:
+      label: Grundfos GO app screenshot
+      description: Taken around the same time, showing flow, head, power and the control mode.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy
+      options:
+        - label: I replaced the pump's Bluetooth address in everything I pasted, including the command lines.
+          required: true

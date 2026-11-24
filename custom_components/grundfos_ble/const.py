@@ -71,7 +71,7 @@ ISSUE_PROXY_CANNOT_PAIR: Final = "proxy_cannot_pair"
 ISSUE_UNREACHABLE: Final = "unreachable"
 ISSUE_COLLECT_ONLY: Final = "collect_only"
 ISSUE_NOW_SUPPORTED: Final = "now_supported"
-ISSUES_URL: Final = "https://github.com/83noit/ha-grundfos-ble/issues"
+NEW_PUMP_URL: Final = "https://github.com/83noit/ha-grundfos-ble/blob/main/docs/new-pump.md"
 
 CAP_OPERATION: Final = "operation"
 CAP_ALARMS: Final = "alarms"

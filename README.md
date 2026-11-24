@@ -26,8 +26,8 @@ This project has nothing to do with Grundfos.
 - A Grundfos ALPHA2 GO. Other Grundfos Bluetooth pumps, like the ALPHA3, ALPHA HWR and SCALA1,
   talk the same way but aren't supported yet. You can still add one from *Add integration*, for
   data collection: it pairs once, records what the pump answers and creates no sensors.
-  Download its diagnostics and attach them to an issue so support can be added. Automatic
-  discovery stays quiet about these pumps.
+  Download its diagnostics and attach them to a request so support can be added: see
+  [Asking for a new pump](docs/new-pump.md). Automatic discovery stays quiet about these pumps.
 - Home Assistant 2026.11 or newer.
 - **A Bluetooth proxy that can make connections, within a few metres of the pump.** An ESPHome
   device with `bluetooth_proxy:` works (it makes connections unless you turn that off). The
