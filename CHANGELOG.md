@@ -6,6 +6,15 @@ Notable changes, newest first. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The ALPHA HWR (family 52, type 7, for example an ALPHA 15-58F) can be added, through the
+  grundfos-ble version that recognises it. It reads the same values as the ALPHA2 GO, checked
+  against a recording from one pump. It has no AutoNight, and its electronics temperature stays
+  unknown.
+- The control mode sensor knows the rest of the GENIbus modes, including the ALPHA HWR's
+  temperature range.
+
 ## [0.3.0b1] - 2026-11-24
 
 Beta, so owners of a pump this integration doesn't support yet can record it from Home

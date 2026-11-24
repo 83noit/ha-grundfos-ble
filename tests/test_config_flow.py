@@ -26,6 +26,7 @@ from .conftest import (
     PROXY_SOURCE,
     PUMP_ADDRESS,
     PUMP_NAME,
+    SERVICE_DATA_ALPHA_HWR,
     SERVICE_DATA_BUTTON,
     SERVICE_DATA_IDLE,
     SERVICE_DATA_OTHER_PUMP,
@@ -143,6 +144,16 @@ async def test_duplicate_is_refused(hass: HomeAssistant, config_entry: MockConfi
     )
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "already_configured"
+
+
+async def test_alpha_hwr_advert_is_offered(hass: HomeAssistant) -> None:
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_BLUETOOTH},
+        data=service_info(SERVICE_DATA_ALPHA_HWR),
+    )
+    assert result["type"] is FlowResultType.FORM, result
+    assert result["step_id"] == "bluetooth_confirm"
 
 
 async def test_unsupported_and_malformed_adverts_abort(hass: HomeAssistant) -> None:

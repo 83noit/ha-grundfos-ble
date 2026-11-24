@@ -23,11 +23,12 @@ This project has nothing to do with Grundfos.
 
 ## What you need
 
-- A Grundfos ALPHA2 GO. Other Grundfos Bluetooth pumps, like the ALPHA3, ALPHA HWR and SCALA1,
-  talk the same way but aren't supported yet. You can still add one from *Add integration*, for
-  data collection: it pairs once, records what the pump answers and creates no sensors.
-  Download its diagnostics and attach them to a request so support can be added: see
-  [Asking for a new pump](docs/new-pump.md). Automatic discovery stays quiet about these pumps.
+- A Grundfos ALPHA2 GO, or an ALPHA HWR (for example an ALPHA 15-58F). Other Grundfos Bluetooth
+  pumps, like the ALPHA3 and SCALA1, talk the same way but aren't supported yet. You can still
+  add one from *Add integration*, for data collection: it pairs once, records what the pump
+  answers and creates no sensors. Download its diagnostics and attach them to a request so
+  support can be added: see [Asking for a new pump](docs/new-pump.md). Automatic discovery stays
+  quiet about these pumps.
 - Home Assistant 2026.11 or newer.
 - **A Bluetooth proxy that can make connections, within a few metres of the pump.** An ESPHome
   device with `bluetooth_proxy:` works (it makes connections unless you turn that off). The
@@ -196,8 +197,9 @@ actions:
   as gaps in the history. An ESPHome proxy near the pump is the way to go. When you pair
   through a local adapter, it keeps the bond it already has unless the pump turns that bond
   down during the button window, so a *Reconfigure* you give up on leaves a working bond alone.
-- One kind of pump (ALPHA2 GO). Any other one can only be added for data collection (see What
-  you need).
+- Two kinds of pump: the ALPHA2 GO and the ALPHA HWR. The ALPHA HWR doesn't report an
+  electronics temperature, so that sensor stays unknown. Any other pump can only be added for
+  data collection (see What you need).
 - The bond lives on the proxy that paired (see above).
 - The Grundfos GO app and Home Assistant can't both be connected at once.
 - Some decoded values aren't confirmed yet, and they're labelled that way.

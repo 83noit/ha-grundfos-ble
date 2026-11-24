@@ -1,9 +1,9 @@
 # Asking for a new pump
 
-This integration reads the Grundfos pumps it has a description for. Today that's the
-**ALPHA2 GO**. Other Grundfos pumps with Bluetooth talk the same protocol (GENIbus), but each
-model keeps its values in its own places, and a guess could show wrong values. So before a
-model is added, I need a recording of what a real one answers.
+This integration reads the Grundfos pumps it has a description for. Today that's the **ALPHA2
+GO** and the **ALPHA HWR**. Other Grundfos pumps with Bluetooth talk the same protocol
+(GENIbus), but each model keeps its values in its own places, and a guess could show wrong
+values. So before a model is added, I need a recording of what a real one answers.
 
 Someone may have asked for your model already: see the
 [existing pump requests](https://github.com/83noit/ha-grundfos-ble/issues?q=is%3Aissue%20label%3A%22pump%20request%22).
