@@ -15,6 +15,6 @@
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/83noit/ha-grundfos-ble/issues",
   "loggers": ["grundfos_ble", "ble_bond"],
-  "requirements": ["grundfos-ble==0.5.0b2", "ble-bond==1.1.0"],
-  "version": "0.3.0b2"
+  "requirements": ["grundfos-ble==0.5.0", "ble-bond==1.1.0"],
+  "version": "0.3.0"
 }

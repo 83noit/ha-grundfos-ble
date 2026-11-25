@@ -6,6 +6,18 @@ Notable changes, newest first. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-25
+
+Everything in 0.3.0b1 and 0.3.0b2 below. The ALPHA HWR support is confirmed by the owner of an
+ALPHA 15-58F, whose pump was discovered, paired and showed every sensor
+([#5](https://github.com/83noit/ha-grundfos-ble/issues/5)). Plus:
+
+### Changed
+
+- Needs grundfos-ble 0.5.0.
+- The README, the support notes and *Asking for a new pump* name the ALPHA HWR and no longer
+  send you to a beta.
+
 ## [0.3.0b2] - 2026-11-24
 
 Beta, for owners of an ALPHA HWR to try. Needs grundfos-ble 0.5.0b2.
@@ -224,7 +236,8 @@ Beta, for testing on real hardware before 0.2.0. Needs grundfos-ble 0.2.0.
 - First public release: reads a Grundfos ALPHA2 GO over Bluetooth LE through an ESPHome
   Bluetooth proxy. Read-only.
 
-[Unreleased]: https://github.com/83noit/ha-grundfos-ble/compare/v0.3.0b2...HEAD
+[Unreleased]: https://github.com/83noit/ha-grundfos-ble/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.3.0
 [0.3.0b2]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.3.0b2
 [0.3.0b1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.3.0b1
 [0.2.1]: https://github.com/83noit/ha-grundfos-ble/releases/tag/v0.2.1
