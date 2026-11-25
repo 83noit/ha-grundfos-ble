@@ -7,9 +7,9 @@
 [![HACS Default](https://img.shields.io/badge/HACS-Default-41BDF5.svg)](https://github.com/hacs/default)
 [![License: MIT](https://img.shields.io/github/license/83noit/ha-grundfos-ble)](LICENSE)
 
-Watch a **Grundfos ALPHA2 GO** circulator pump from Home Assistant, over Bluetooth. No cloud,
-no account. It talks to the pump directly, through an ESPHome Bluetooth proxy, in the pump's
-own language (GENIbus).
+Watch a **Grundfos ALPHA2 GO** or **ALPHA HWR** circulator pump from Home Assistant, over
+Bluetooth LE. Local, no cloud, no account. It talks to the pump directly, in the pump's own
+language (GENIbus).
 
 You get sensors for flow, head, power, speed, voltage, temperatures, control mode, setpoint,
 alarms and warnings. It only reads: it never changes anything on the pump, and the
@@ -17,7 +17,8 @@ alarms and warnings. It only reads: it never changes anything on the pump, and t
 
 It's built on the [grundfos-ble](https://github.com/83noit/grundfos-ble) library, which
 [credits](https://github.com/83noit/grundfos-ble#acknowledgements) the projects it learned
-from. Status: alpha, tested on one ALPHA2 GO XX-75.
+from. Status: alpha, tested on one ALPHA2 GO XX-75, and by its owner on one ALPHA HWR (an
+ALPHA 15-58F).
 
 This project has nothing to do with Grundfos.
 

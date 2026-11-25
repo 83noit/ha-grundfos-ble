@@ -13,10 +13,7 @@ Recording a pump takes a few minutes. There are two ways to do it.
 
 ## The easy way: from Home Assistant
 
-Needs ha-grundfos-ble 0.3.0b1 or newer. While it's a beta, install it on its own: in the
-Marketplace (Settings → Marketplace, formerly HACS), open Grundfos Bluetooth, choose ⋮ →
-*Install another version*, pick 0.3.0b1 and restart Home Assistant. Turning on beta versions
-instead would also bring every later beta.
+Needs ha-grundfos-ble 0.3.0 or newer.
 
 1. Go to Settings → Devices & services → *Add integration* → **Grundfos Bluetooth**.
 2. Your pump appears in the list as *not supported yet (family X, type Y): add it to collect
@@ -50,7 +47,7 @@ the same recording from a computer with Bluetooth near the pump:
 ```
 python3 -m venv grundfos-venv
 source grundfos-venv/bin/activate      # Windows: grundfos-venv\Scripts\activate
-pip install "grundfos-ble>=0.5.0b1"
+pip install "grundfos-ble>=0.5.0"
 
 grundfos-ble scan
 grundfos-ble pair <address>            # press the pump's Bluetooth button when asked
@@ -59,7 +56,7 @@ grundfos-ble probe <address>
 grundfos-ble capture <address> my-pump.txt
 ```
 
-If you have [uv](https://docs.astral.sh/uv/), `uvx --from "grundfos-ble>=0.5.0b1" grundfos-ble
+If you have [uv](https://docs.astral.sh/uv/), `uvx --from "grundfos-ble>=0.5.0" grundfos-ble
 <command>` does the same without a venv. (Version 0.4.0 works too, but there the flag is
 `--include-serial` and the pump's name isn't left out.)
 

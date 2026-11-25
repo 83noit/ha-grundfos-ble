@@ -20,7 +20,8 @@ later, but nobody's working on them in the meantime.
 
 I develop and test on one Grundfos ALPHA2 GO, reached through ESPHome Bluetooth proxies (ESP32
 boards running `bluetooth_proxy` with connections turned on). That setup is supported, and
-problems with it get fixed.
+problems with it get fixed. The ALPHA HWR is supported from one owner's recording and testing;
+I don't have one.
 
 Anything else is best effort, and here's why. Bluetooth problems nearly always depend on the
 exact radio, its firmware and the Bluetooth stack on the host, so you only really get to the
